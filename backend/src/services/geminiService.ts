@@ -115,9 +115,16 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
     }
 
     // ── Email — primary & alt ──
-    // IMPORTANT: 'contact' alone is NOT used for phone — /email|mail/ safely
-    // matches 'Contact Email', 'Alt Email' etc. without polluting phone.
-    const primaryEmailKey = findKey(/\bcontact.?email\b|\bemail\b|\bmail\b|e-?mail/i);
+    // IMPORTANT: Exclude owner/assigned/agent/admin to avoid mapping owner emails as lead emails.
+    const primaryEmailKey = keys.find(k => {
+      const name = k.toLowerCase();
+      const val = row[k]?.trim();
+      if (!val) return false;
+      return (name.includes('email') || name.includes('mail')) && 
+             !name.includes('owner') && !name.includes('assigned') && 
+             !name.includes('agent') && !name.includes('admin') && 
+             !name.includes('secondary') && !name.includes('alt');
+    });
     if (primaryEmailKey) result.email = row[primaryEmailKey];
 
     const altEmailKey = findKey(/\balt.?email\b|\bsecondary.?email\b|\bother.?email\b/i);
@@ -132,11 +139,12 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
     if (phoneKey) {
       result.mobile_without_country_code = row[phoneKey];
     } else {
-      // Value-based fallback: scan for a field whose value looks like a phone
+      // Value-based fallback: scan for a field whose value looks like a phone (reject date patterns)
       const phoneValRe = /^[\+\s\-()0-9]{7,15}$/;
+      const datePattern = /\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}/;
       for (const k of keys) {
         const v = String(row[k] || '').trim();
-        if (v && phoneValRe.test(v) && !v.includes('@') && !/\d{4}-\d{2}-\d{2}/.test(v)) {
+        if (v && phoneValRe.test(v) && !v.includes('@') && !datePattern.test(v)) {
           result.mobile_without_country_code = v;
           break;
         }
@@ -148,7 +156,7 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
     if (dateKey) result.created_at = row[dateKey];
 
     // ── Company / Org ──
-    const companyKey = findKey(/\bcompany\b|\borg\b|\borganis?ation\b|\bbusiness\b|\bbiz\b/i);
+    const companyKey = findKey(/\bcompany\b|\borg\b|\borganis?ation\b|\bbusiness\b|\bbiz\b|\bfirm\b|\bcorp\b|\bco\b/i);
     if (companyKey) result.company = row[companyKey];
 
     // ── City — Town > City > Location ──
@@ -216,24 +224,27 @@ const SYSTEM_INSTRUCTION = `You are a CRM data extraction engine. You will recei
 created_at, name, email, country_code, mobile_without_country_code, company, city, state, country, lead_owner, crm_status, crm_note, data_source, possession_time, description
 
 RULES:
-1. Column names are NOT fixed. Infer meaning from header text AND cell content (e.g. a column named "Ph No", "Contact Number", "Whatsapp", "Mobile" etc. all map to mobile_without_country_code — a value that looks like a phone number, even under an unexpected header, must still be extracted).
+1. Column names are NOT fixed. Infer meaning from header text AND cell content (e.g. a column named "Ph No", "Contact Number", "Whatsapp", "Mobile" etc. all map to mobile_without_country_code).
+   - CRITICAL: Never map owner/agent/assigned emails (e.g. "Owner Email", "Agent Email", "Assigned To Email") to the lead's primary email. Only map columns specifically meant for the lead's email.
 2. Extract phone numbers: strip spaces, dashes, parentheses. Keep only digits for mobile_without_country_code.
+   - CRITICAL: Reject date-like values (e.g. "01/02/2026", "16-05-2026", "14-05-2026", "2026-05-13") from being extracted as phone numbers.
    - If country code is present (e.g. +91), put it in country_code (with '+' prefix).
    - If a number starts with '00' (e.g. 0091...), treat it as an internationally dialed number. Put the country code (e.g. +91) in country_code.
    - If a number starts with known country code digits (e.g. 91, 1, 44, 86, 65) without a '+' but matches typical international lengths, split it! (e.g. "447911123456" -> country_code: "+44", mobile: "7911123456").
    - CRITICAL: Whatever digits you assign to country_code MUST BE REMOVED from mobile_without_country_code. Do NOT duplicate them.
-3. Extract city/state/country similarly — match by header meaning first, then by value pattern (known Indian city/state names) if header is ambiguous.
-4. created_at: convert any date format (DD-MM-YYYY, MM/DD/YYYY, "14 May 2026", ISO, etc.) into "YYYY-MM-DD HH:mm:ss". Never leave a parseable date blank.
-5. crm_status — map to ONE of: GOOD_LEAD_FOLLOW_UP, DID_NOT_CONNECT, BAD_LEAD, SALE_DONE. Infer confidently from notes/comments/stage columns even if the exact enum word is not used:
+3. Map company/organization names to company (e.g. columns like "Firm", "Company", "Co", "Corp", "Organization", "Business", "Brand" all map to company).
+4. Extract city/state/country similarly — match by header meaning first, then by value pattern (known Indian city/state names) if header is ambiguous.
+5. created_at: convert any date format (DD-MM-YYYY, MM/DD/YYYY, "14 May 2026", ISO, etc.) into "YYYY-MM-DD HH:mm:ss". Never leave a parseable date blank.
+6. crm_status — map to ONE of: GOOD_LEAD_FOLLOW_UP, DID_NOT_CONNECT, BAD_LEAD, SALE_DONE. Infer confidently from notes/comments/stage columns even if the exact enum word is not used:
    - "deal closed", "onboarding started", "payment done", "booking confirmed" → SALE_DONE
    - "not interested", "no longer interested", "junk" → BAD_LEAD
    - "will call back", "interested", "hot lead", "follow up" → GOOD_LEAD_FOLLOW_UP
    - "no response", "could not reach", "busy", "DNC" → DID_NOT_CONNECT
    - Only leave blank if there is truly NO signal at all.
-6. data_source — map to ONE of: leads_on_demand, meridian_tower, eden_park, varah_swamy, sarjapur_plots. Leave blank if no confident match.
-7. Multiple emails/phones in one field: use the first as the primary value, append all additional ones into crm_note prefixed clearly (e.g. "Alt phone: 9876500000").
-8. SKIP a record ONLY if it has NEITHER a valid email NOR a valid phone number after extraction. If at least one of these two is present, the record MUST be imported — never skip it for any other reason.
-9. Return strict JSON array only. No markdown, no commentary, no code fences.`;
+7. data_source — map to ONE of: leads_on_demand, meridian_tower, eden_park, varah_swamy, sarjapur_plots. Leave blank if no confident match.
+8. Multiple emails/phones in one field: use the first as the primary value, append all additional ones into crm_note prefixed clearly (e.g. "Alt phone: 9876500000").
+9. SKIP a record ONLY if it has NEITHER a valid email NOR a valid phone number after extraction. If at least one of these two is present, the record MUST be imported — never skip it for any other reason.
+10. Return strict JSON array only. No markdown, no commentary, no code fences.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Few-shot examples — covers phone-only, ambiguous city header, status inference

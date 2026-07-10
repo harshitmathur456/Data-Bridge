@@ -53,6 +53,9 @@ function extractEmails(text: string): string[] {
 
 // Regex to extract possible phone numbers from a string
 function extractPhoneNumbers(text: string): string[] {
+  const datePattern = /\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}/;
+  if (datePattern.test(text)) return [];
+
   // Matches sequences of digits, optionally prefixed with +, allowing spaces, dashes, and parentheses
   const phoneRegex = /\+?[0-9\s\-()]{7,30}/g;
   const matches = text.match(phoneRegex) || [];
@@ -92,13 +95,21 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
   // Emergency fallback: scan ALL keys for a phone-looking value
   if (!mobileRaw) {
     const phonePattern = /^[\+\s\-()0-9]{7,15}$/;
+    const datePattern = /\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}/;
     for (const key of Object.keys(raw)) {
       const val = String(raw[key] || '').trim();
       // Must look like a phone and not already captured as email or date
-      if (val && phonePattern.test(val) && !val.includes('@') && !/\d{4}-\d{2}-\d{2}/.test(val)) {
+      if (val && phonePattern.test(val) && !val.includes('@') && !datePattern.test(val)) {
         mobileRaw = val;
         break;
       }
+    }
+  }
+
+  if (mobileRaw) {
+    const datePattern = /\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}/;
+    if (datePattern.test(mobileRaw)) {
+      mobileRaw = '';
     }
   }
 

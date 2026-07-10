@@ -151,6 +151,22 @@ describe('sanitizeAndValidateRecord', () => {
       expect(record?.country_code).toBe('+1');
       expect(record?.mobile_without_country_code).toBe('4155550198');
     });
+
+    it('should reject date-like pattern as phone number: 16-05-2026', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        mobile: '16-05-2026',
+      });
+      expect(record?.mobile_without_country_code).toBeUndefined();
+    });
+
+    it('should reject date-like pattern with slashes: 01/02/2026', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        mobile: '01/02/2026',
+      });
+      expect(record?.mobile_without_country_code).toBeUndefined();
+    });
   });
 
   // 6. Date validation: created_at format or fallback
