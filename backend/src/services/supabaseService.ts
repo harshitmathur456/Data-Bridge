@@ -2,23 +2,22 @@ import { createClient } from '@supabase/supabase-js';
 import { CRMRecord } from '../utils/validation';
 import { RawRow } from './geminiService';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
-
 let _client: ReturnType<typeof createClient> | null = null;
 
 function getClient() {
   if (!_client) {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    const url = process.env.SUPABASE_URL || '';
+    const key = process.env.SUPABASE_ANON_KEY || '';
+    if (!url || !key) {
       throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env');
     }
-    _client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    _client = createClient(url, key);
   }
   return _client;
 }
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY);
 }
 
 export interface SaveImportResult {
