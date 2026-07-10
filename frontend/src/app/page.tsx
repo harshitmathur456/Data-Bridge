@@ -41,28 +41,47 @@ function StepperBar({ current, dark }: { current: Step; dark: boolean }) {
   const steps = [{ id: "upload", label: "Upload" }, { id: "preview", label: "Preview" }, { id: "results", label: "Results" }];
   const order: Step[] = ["upload", "preview", "importing", "results"];
   const idx = order.indexOf(current);
+
+  const percentMap = {
+    upload: 33,
+    preview: 66,
+    importing: 85,
+    results: 100
+  };
+  const pct = percentMap[current] || 0;
+
   return (
-    <div className="flex items-center gap-0">
-      {steps.map((s, i) => {
-        const sIdx = order.indexOf(s.id as Step);
-        const done = idx > sIdx;
-        const active = s.id === current || (current === "importing" && s.id === "preview");
-        return (
-          <React.Fragment key={s.id}>
-            {i > 0 && <div className={`h-px w-16 mx-1 ${done || active ? "bg-[#00463f]" : dark ? "bg-slate-700" : "bg-gray-200"}`} />}
-            <div className="flex flex-col items-center gap-1">
-              <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
-                done ? "bg-[#00463f] border-[#00463f] text-white"
-                  : active ? `border-[#00463f] text-[#00463f] ${dark ? "bg-slate-800" : "bg-white"}`
-                  : dark ? "border-slate-600 text-slate-500 bg-slate-800" : "border-gray-300 text-gray-400 bg-white"
-              }`}>
-                {done ? <Check className="h-4 w-4" /> : i + 1}
+    <div className="flex flex-col items-center gap-3">
+      <div className="flex items-center gap-0">
+        {steps.map((s, i) => {
+          const sIdx = order.indexOf(s.id as Step);
+          const done = idx > sIdx;
+          const active = s.id === current || (current === "importing" && s.id === "preview");
+          return (
+            <React.Fragment key={s.id}>
+              {i > 0 && <div className={`h-px w-16 mx-1 ${done || active ? "bg-[#00463f]" : dark ? "bg-slate-700" : "bg-gray-200"}`} />}
+              <div className="flex flex-col items-center gap-1">
+                <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                  done ? "bg-[#00463f] border-[#00463f] text-white"
+                    : active ? `border-[#00463f] text-[#00463f] ${dark ? "bg-slate-800" : "bg-white"}`
+                    : dark ? "border-slate-600 text-slate-500 bg-slate-800" : "border-gray-300 text-gray-400 bg-white"
+                }`}>
+                  {done ? <Check className="h-4 w-4" /> : i + 1}
+                </div>
+                <span className={`text-[11px] font-semibold ${active || done ? "text-[#00463f]" : dark ? "text-slate-500" : "text-gray-400"}`}>{s.label}</span>
               </div>
-              <span className={`text-[11px] font-semibold ${active || done ? "text-[#00463f]" : dark ? "text-slate-500" : "text-gray-400"}`}>{s.label}</span>
-            </div>
-          </React.Fragment>
-        );
-      })}
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {/* Horizontal Progress Bar & Percentage */}
+      <div className="w-48 flex flex-col gap-1 items-center mt-1">
+        <div className={`w-full h-1.5 rounded-full overflow-hidden ${dark ? "bg-slate-850" : "bg-gray-200"}`}>
+          <div className="h-full bg-[#00463f] rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="text-[10px] font-bold text-[#00463f]">{pct}% Completed</span>
+      </div>
     </div>
   );
 }
@@ -700,28 +719,6 @@ export default function Home() {
                         : `Batch ${batchProgress.filter(p => p.status !== "idle").length} of ${batchProgress.length}`}
                     </span>
                     <span className="font-bold text-[#00463f]">{Math.round(progressPct)}% Complete</span>
-                  </div>
-                </div>
-
-                {/* Console log */}
-                <div className="bg-[#020617] rounded-2xl overflow-hidden shadow-lg border border-slate-800">
-                  <div className="bg-slate-950 px-4 py-2.5 flex items-center justify-between border-b border-slate-800">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping inline-block" /> Live Console
-                    </span>
-                    <div className="flex gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-full bg-red-500/50" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-amber-500/50" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/50" />
-                    </div>
-                  </div>
-                  <div className="p-4 h-52 overflow-y-auto custom-scrollbar font-mono text-[11px] flex flex-col gap-1.5">
-                    {logs.map((l, i) => (
-                      <div key={i} className="flex gap-2">
-                        <span className="text-slate-600 select-none">$</span>
-                        <span className={l.includes("✗") ? "text-red-400" : l.includes("✓") ? "text-emerald-400" : l.includes("Supabase") ? "text-purple-400" : "text-slate-300"}>{l}</span>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>
