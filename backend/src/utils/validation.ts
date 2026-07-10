@@ -76,43 +76,60 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
   const primaryEmail = emails[0] || '';
   const extraEmails = emails.slice(1);
 
-  // 2. Resolve and extract phone/mobile
-  let mobileRaw = String(raw.mobile_without_country_code || raw.mobile || raw.phone || raw.phones || '').trim();
+  // 2. Resolve and extract phone/mobile — check many possible alias keys
+  const phoneAliasKeys = [
+    'mobile_without_country_code', 'mobile', 'phone', 'phones',
+    'contact_number', 'contact', 'whatsapp', 'mob', 'ph_no', 'ph',
+    'telephone', 'cell', 'phone_number',
+  ];
+  let mobileRaw = '';
+  for (const alias of phoneAliasKeys) {
+    const val = String(raw[alias] || '').trim();
+    if (val) { mobileRaw = val; break; }
+  }
+
+  // Emergency fallback: scan ALL keys for a phone-looking value
+  if (!mobileRaw) {
+    const phonePattern = /^[\+\s\-()0-9]{7,15}$/;
+    for (const key of Object.keys(raw)) {
+      const val = String(raw[key] || '').trim();
+      // Must look like a phone and not already captured as email or date
+      if (val && phonePattern.test(val) && !val.includes('@') && !/\d{4}-\d{2}-\d{2}/.test(val)) {
+        mobileRaw = val;
+        break;
+      }
+    }
+  }
+
   let phones = extractPhoneNumbers(mobileRaw);
   if (phones.length === 0 && mobileRaw) {
-    phones = [mobileRaw]; // fallback
+    phones = [mobileRaw]; // preserve as-is if no digit-only pattern matched
   }
 
   let primaryMobile = phones[0] || '';
   const extraMobiles = phones.slice(1);
 
-  // Separate country code from primary mobile if prefix "+" exists
+  // Detect and split country code BEFORE further digit stripping
+  // Works on mobileRaw so "+91 9812300001" is handled correctly
   let countryCode = String(raw.country_code || '').trim();
-  if (primaryMobile.startsWith('+')) {
-    // If country code is empty, extract it from mobile
-    if (!countryCode) {
-      if (primaryMobile.startsWith('+91')) {
-        countryCode = '+91';
-        primaryMobile = primaryMobile.replace('+91', '');
-      } else {
-        // Generic extraction (e.g. first 3 chars)
-        const match = primaryMobile.match(/^(\+\d{1,3})/);
-        if (match) {
-          countryCode = match[1];
-          primaryMobile = primaryMobile.replace(countryCode, '');
-        }
-      }
-    } else {
-      primaryMobile = primaryMobile.replace(/^\+\d+/, '');
+  if (!countryCode) {
+    const ccMatch = mobileRaw.trim().match(/^(\+\d{1,3})[\s\-]?(\d+)/);
+    if (ccMatch) {
+      countryCode = ccMatch[1];
+      // Rebuild primaryMobile from the digits after the country code
+      primaryMobile = mobileRaw.trim().replace(/^(\+\d{1,3})[\s\-]?/, '');
     }
+  } else if (primaryMobile.startsWith('+')) {
+    // country_code was provided separately — strip any leading + digits from mobile
+    primaryMobile = primaryMobile.replace(/^\+\d{1,3}[\s\-]?/, '');
   }
-  
-  // Clean up primary mobile to contain only digits
+
+  // Keep only digits in the final mobile value
   primaryMobile = primaryMobile.replace(/\D/g, '');
 
-  // 3. Skip check: must have email OR mobile
+  // 3. Skip check: ONLY skip when BOTH email AND phone are absent
   if (!primaryEmail && !primaryMobile) {
-    return { record: null, skipped: true, reason: 'Missing email and mobile number' };
+    return { record: null, skipped: true, reason: 'Missing both email and phone number' };
   }
 
   // 4. Date validation
@@ -164,15 +181,32 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
 
   const finalCrmNote = notesList.join(' | ');
 
+  // City — check alias keys as well
+  const cityAliasKeys = ['city', 'location', 'loc_city', 'location_city', 'loc', 'area', 'place', 'town'];
+  let cityVal = '';
+  for (const alias of cityAliasKeys) {
+    const v = String(raw[alias] || '').trim();
+    if (v) { cityVal = v; break; }
+  }
+  // Fallback: scan raw keys for city-like headers
+  if (!cityVal) {
+    for (const key of Object.keys(raw)) {
+      if (/city|town|area|\bloc\b|location/i.test(key) && raw[key]?.trim()) {
+        cityVal = raw[key].trim();
+        break;
+      }
+    }
+  }
+
   const crmRecord: CRMRecord = {
     created_at: createdAtStr,
-    name: String(raw.name || raw.lead_name || raw.customer_name || '').trim(),
+    name: String(raw.name || raw.lead_name || raw.customer_name || raw.contact_person || '').trim(),
     email: primaryEmail,
     country_code: countryCode || undefined,
     mobile_without_country_code: primaryMobile || undefined,
     company: String(raw.company || raw.company_name || '').trim(),
-    city: String(raw.city || '').trim(),
-    state: String(raw.state || '').trim(),
+    city: cityVal,
+    state: String(raw.state || raw.province || raw.loc_state || '').trim(),
     country: String(raw.country || '').trim(),
     lead_owner: String(raw.lead_owner || '').trim(),
     crm_status: crmStatus,
