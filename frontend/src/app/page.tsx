@@ -23,6 +23,8 @@ interface CRMRecord {
 }
 interface SkippedRecord { row: RawRow; reason: string; }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 // ─── Top progress bar (fixed, shown during import) ──────────────────────────
 function TopProgressBar({ pct, visible }: { pct: number; visible: boolean }) {
   if (!visible) return null;
@@ -203,7 +205,7 @@ export default function Home() {
 
     setIsLoggingIn(true);
     try {
-      const res = await fetch("http://localhost:3001/api/login", {
+      const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: loginName, captchaInput }),
@@ -230,10 +232,10 @@ export default function Home() {
 
   // Check backend health
   useEffect(() => {
-    fetch("http://localhost:3001/health")
+    fetch(`${API_BASE_URL}/health`)
       .then(() => {
         setServerOk(true);
-        return fetch("http://localhost:3001/api/import", {
+        return fetch(`${API_BASE_URL}/api/import`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ rows: [] }),
         });
@@ -344,7 +346,7 @@ export default function Home() {
       setLogs(p => [...p, `[Batch ${bn}/${chunks.length}] Mapping ${chunks[i].length} rows…`]);
       
       try {
-        const res = await fetch("http://localhost:3001/api/import", {
+        const res = await fetch(`${API_BASE_URL}/api/import`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             rows: chunks[i], fileName: file?.name, isFinalBatch: isFinalBatch && failedChunks.length === 0,
@@ -410,7 +412,7 @@ export default function Home() {
       const isFinalBatch = i === failedChunks.length - 1 && remainingFailed.length === 0;
 
       try {
-        const res = await fetch("http://localhost:3001/api/import", {
+        const res = await fetch(`${API_BASE_URL}/api/import`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             rows: item.chunk, fileName: file?.name, isFinalBatch,
