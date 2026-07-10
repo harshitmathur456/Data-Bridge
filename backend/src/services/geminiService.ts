@@ -152,9 +152,9 @@ export async function mapBatchWithGemini(rows: RawRow[]): Promise<any[]> {
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Use gemini-1.5-flash as specified in PRD
+    // gemini-2.0-flash — available on this key, fast and cheap
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash',
       systemInstruction: SYSTEM_INSTRUCTION
     });
 
