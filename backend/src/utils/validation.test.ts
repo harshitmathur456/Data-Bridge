@@ -187,4 +187,82 @@ describe('sanitizeAndValidateRecord', () => {
       expect(record?.created_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     });
   });
+
+  // 7. Junk placeholder validation
+  describe('Junk placeholder rejection', () => {
+    it('should treat "N/A", "none", "null", "-" as empty/blank', () => {
+      const { record, skipped } = sanitizeAndValidateRecord({
+        name: 'John Doe',
+        email: 'N/A',
+        mobile: 'none',
+      });
+      expect(skipped).toBe(true); // both email and phone became blank, so skipped
+      expect(record).toBeNull();
+    });
+
+    it('should preserve record if at least one valid email exists despite other junk', () => {
+      const { record, skipped } = sanitizeAndValidateRecord({
+        name: 'John Doe',
+        email: 'john@example.com',
+        mobile: 'n/a',
+      });
+      expect(skipped).toBe(false);
+      expect(record?.email).toBe('john@example.com');
+      expect(record?.mobile_without_country_code).toBeUndefined();
+    });
+  });
+
+  // 8. Emoji-robust crm_status validation
+  describe('Emoji-robust crm_status validation', () => {
+    it('should correctly map "GOOD LEAD 🔥🔥🔥"', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        crm_status: 'GOOD LEAD 🔥🔥🔥',
+      });
+      expect(record?.crm_status).toBe('GOOD_LEAD_FOLLOW_UP');
+    });
+
+    it('should correctly map "sale done 🎉"', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        crm_status: 'sale done 🎉',
+      });
+      expect(record?.crm_status).toBe('SALE_DONE');
+    });
+  });
+
+  // 9. Email normalization
+  describe('Email normalization', () => {
+    it('should trim and lowercase emails', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: '  SPACED.EMAIL@EXAMPLE.COM ',
+      });
+      expect(record?.email).toBe('spaced.email@example.com');
+    });
+  });
+
+  // 10. CSV Injection prevention (Formula Injection)
+  describe('CSV Injection prevention', () => {
+    it('should prepend a single quote to values starting with =, +, -, @', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        name: '=SUM(A1:A10)',
+        company: '+Corp',
+        crm_note: '-some notes',
+        description: '@danger',
+      });
+      expect(record?.name).toBe("'=SUM(A1:A10)");
+      expect(record?.company).toBe("'+Corp");
+      expect(record?.crm_note).toBe("'-some notes");
+      expect(record?.description).toBe("'@danger");
+    });
+
+    it('should not alter normal text', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        name: 'Normal Name',
+      });
+      expect(record?.name).toBe('Normal Name');
+    });
+  });
 });

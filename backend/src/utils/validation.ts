@@ -62,13 +62,43 @@ function extractPhoneNumbers(text: string): string[] {
   return matches.map(p => p.replace(/[\s\-()]/g, '')).filter(p => p.length >= 7);
 }
 
+function cleanJunk(val: string): string {
+  const trimmed = val.trim();
+  const junkValues = ['n/a', 'na', 'none', 'null', '-'];
+  if (junkValues.includes(trimmed.toLowerCase())) {
+    return '';
+  }
+  return trimmed;
+}
+
+function sanitizeFormulaInjection(val: string): string {
+  if (!val) return val;
+  const firstChar = val.charAt(0);
+  if (['=', '+', '-', '@'].includes(firstChar)) {
+    return `'` + val;
+  }
+  return val;
+}
+
 export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null; skipped: boolean; reason?: string } {
   if (!raw || typeof raw !== 'object') {
     return { record: null, skipped: true, reason: 'Invalid record format' };
   }
 
+  // Pre-process raw object to clean junk placeholders
+  const cleanRaw: any = {};
+  for (const key of Object.keys(raw)) {
+    const val = raw[key];
+    if (typeof val === 'string') {
+      cleanRaw[key] = cleanJunk(val);
+    } else {
+      cleanRaw[key] = val;
+    }
+  }
+  raw = cleanRaw;
+
   // 1. Resolve and extract emails
-  let emailRaw = String(raw.email || raw.emails || '').trim();
+  let emailRaw = String(raw.email || raw.emails || '').trim().toLowerCase();
   let emails = extractEmails(emailRaw);
   
   // If the email field didn't contain emails, search description or note as backup or check if they are in raw.email
@@ -227,10 +257,21 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
   // 5. Enum clamping
   let crmStatus: any = '';
   if (raw.crm_status) {
-    const normalizedStatus = String(raw.crm_status).toUpperCase().replace(/[\s-]/g, '_');
-    const matchedStatus = ALLOWED_CRM_STATUSES.find(s => s === normalizedStatus);
-    if (matchedStatus) {
-      crmStatus = matchedStatus;
+    const rawStatus = String(raw.crm_status).toUpperCase();
+    if (rawStatus.includes('GOOD_LEAD') || rawStatus.includes('FOLLOW_UP') || rawStatus.includes('GOOD')) {
+      crmStatus = 'GOOD_LEAD_FOLLOW_UP';
+    } else if (rawStatus.includes('DID_NOT_CONNECT') || rawStatus.includes('CONNECT')) {
+      crmStatus = 'DID_NOT_CONNECT';
+    } else if (rawStatus.includes('BAD_LEAD') || rawStatus.includes('BAD')) {
+      crmStatus = 'BAD_LEAD';
+    } else if (rawStatus.includes('SALE_DONE') || rawStatus.includes('SALE')) {
+      crmStatus = 'SALE_DONE';
+    } else {
+      const normalizedStatus = rawStatus.replace(/[^A-Z0-9_]/g, '');
+      const matchedStatus = ALLOWED_CRM_STATUSES.find(s => s.replace(/_/g, '') === normalizedStatus);
+      if (matchedStatus) {
+        crmStatus = matchedStatus;
+      }
     }
   }
 
@@ -276,20 +317,20 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
 
   const crmRecord: CRMRecord = {
     created_at: createdAtStr,
-    name: String(raw.name || raw.lead_name || raw.customer_name || raw.contact_person || '').trim(),
+    name: sanitizeFormulaInjection(String(raw.name || raw.lead_name || raw.customer_name || raw.contact_person || '').trim()),
     email: primaryEmail,
     country_code: countryCode || undefined,
     mobile_without_country_code: primaryMobile || undefined,
-    company: String(raw.company || raw.company_name || '').trim(),
-    city: cityVal,
-    state: String(raw.state || raw.province || raw.loc_state || '').trim(),
-    country: String(raw.country || '').trim(),
-    lead_owner: String(raw.lead_owner || '').trim(),
+    company: sanitizeFormulaInjection(String(raw.company || raw.company_name || '').trim()),
+    city: sanitizeFormulaInjection(cityVal),
+    state: sanitizeFormulaInjection(String(raw.state || raw.province || raw.loc_state || '').trim()),
+    country: sanitizeFormulaInjection(String(raw.country || '').trim()),
+    lead_owner: sanitizeFormulaInjection(String(raw.lead_owner || '').trim()),
     crm_status: crmStatus,
-    crm_note: finalCrmNote || undefined,
+    crm_note: finalCrmNote ? sanitizeFormulaInjection(finalCrmNote) : undefined,
     data_source: dataSource,
-    possession_time: String(raw.possession_time || '').trim(),
-    description: String(raw.description || '').trim()
+    possession_time: sanitizeFormulaInjection(String(raw.possession_time || '').trim()),
+    description: sanitizeFormulaInjection(String(raw.description || '').trim())
   };
 
   return { record: crmRecord, skipped: false };
