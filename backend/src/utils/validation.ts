@@ -77,9 +77,10 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
   const extraEmails = emails.slice(1);
 
   // 2. Resolve and extract phone/mobile — check many possible alias keys
+  // NOTE: 'contact' is intentionally excluded — it would match 'Contact Email'.
   const phoneAliasKeys = [
     'mobile_without_country_code', 'mobile', 'phone', 'phones',
-    'contact_number', 'contact', 'whatsapp', 'mob', 'ph_no', 'ph',
+    'contact_number', 'whatsapp', 'mob', 'ph_no', 'ph',
     'telephone', 'cell', 'phone_number',
   ];
   let mobileRaw = '';
@@ -109,23 +110,47 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
   let primaryMobile = phones[0] || '';
   const extraMobiles = phones.slice(1);
 
-  // Detect and split country code BEFORE further digit stripping
-  // Works on mobileRaw so "+91 9812300001" is handled correctly
+  // Detect and split country code BEFORE further digit stripping.
+  // Strategy: try extracting 1-, 2-, 3-digit codes and pick the longest CC
+  // that still leaves a plausible phone (7–15 digits).  This prevents
+  // "+919876543210" being mis-parsed as CC="+919" instead of CC="+91".
   let countryCode = String(raw.country_code || '').trim();
   if (!countryCode) {
-    const ccMatch = mobileRaw.trim().match(/^(\+\d{1,3})[\s\-]?(\d+)/);
-    if (ccMatch) {
-      countryCode = ccMatch[1];
-      // Rebuild primaryMobile from the digits after the country code
-      primaryMobile = mobileRaw.trim().replace(/^(\+\d{1,3})[\s\-]?/, '');
+    const rawTrimmed = mobileRaw.trim();
+    if (rawTrimmed.startsWith('+')) {
+      // Collect all valid CC candidates (1–3 digit codes)
+      // then prefer the one whose remaining digits = 10 (most common mobile length).
+      const candidates: { cc: string; rest: string }[] = [];
+      for (const ccLen of [3, 2, 1]) {
+        const ccCandidate = rawTrimmed.match(new RegExp(`^(\\+\\d{${ccLen}})[\\s\\-]?`))?.[1];
+        if (!ccCandidate) continue;
+        const rest = rawTrimmed.replace(new RegExp(`^\\+\\d{${ccLen}}[\\s\\-]?`), '').replace(/\D/g, '');
+        if (rest.length >= 7 && rest.length <= 15) {
+          candidates.push({ cc: ccCandidate, rest });
+        }
+      }
+      // Prefer 10-digit remainder (global standard); else take first valid
+      const best = candidates.find(c => c.rest.length === 10) ?? candidates[0];
+      if (best) {
+        countryCode = best.cc;
+        primaryMobile = best.rest;
+      }
     }
   } else if (primaryMobile.startsWith('+')) {
-    // country_code was provided separately — strip any leading + digits from mobile
+    // country_code provided separately — strip any +digits prefix from mobile
     primaryMobile = primaryMobile.replace(/^\+\d{1,3}[\s\-]?/, '');
   }
 
   // Keep only digits in the final mobile value
   primaryMobile = primaryMobile.replace(/\D/g, '');
+
+  // Phone validity: must be 7–15 digits after cleaning.
+  // If shorter (e.g. "98765XXXXX" → "98765"), flag as invalid and discard.
+  let invalidPhoneNote = '';
+  if (primaryMobile && !/^\d{7,15}$/.test(primaryMobile)) {
+    invalidPhoneNote = `invalid phone: ${mobileRaw}`;
+    primaryMobile = ''; // do not save a broken number to CRM
+  }
 
   // 3. Skip check: ONLY skip when BOTH email AND phone are absent
   if (!primaryEmail && !primaryMobile) {
@@ -160,24 +185,17 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
     }
   }
 
-  // 6. Build crm_note and capture extra details
+  // 6. Build crm_note — original note + invalid phone flag + extra emails/mobiles
   const notesList: string[] = [];
-  
-  // Add original comments/notes/remarks
+
   const originalNote = String(raw.crm_note || raw.note || raw.notes || raw.remarks || '').trim();
-  if (originalNote) {
-    notesList.push(originalNote);
-  }
+  if (originalNote) notesList.push(originalNote);
 
-  // Append extra emails
-  if (extraEmails.length > 0) {
-    notesList.push(`Extra Emails: ${extraEmails.join(', ')}`);
-  }
+  // Invalid phone: save raw value for reference so data is not silently lost
+  if (invalidPhoneNote) notesList.push(invalidPhoneNote);
 
-  // Append extra mobiles
-  if (extraMobiles.length > 0) {
-    notesList.push(`Extra Mobiles: ${extraMobiles.join(', ')}`);
-  }
+  if (extraEmails.length  > 0) notesList.push(`Extra Emails: ${extraEmails.join(', ')}`);
+  if (extraMobiles.length > 0) notesList.push(`Extra Mobiles: ${extraMobiles.join(', ')}`);
 
   const finalCrmNote = notesList.join(' | ');
 

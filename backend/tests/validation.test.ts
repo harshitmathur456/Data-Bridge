@@ -187,6 +187,81 @@ console.log('══════════════════════�
   assert(r3?.crm_status === '', 'T4c: invalid crm_status clamped to empty string', r3?.crm_status, '""');
 }
 
+// ── Refinement 1: country_code strictly separated from mobile ─────────────────
+{
+  console.log('\n── Refinement 1: country_code strict separation ──');
+
+  // +91 with space
+  const { record: ra } = sanitizeAndValidateRecord({
+    name: 'Neha Gupta', email: 'neha.g@test.co',
+    mobile_without_country_code: '+91 9988776655',
+  });
+  assert(ra?.country_code === '+91', 'R1a: +91 extracted from "+91 9988776655"', ra?.country_code, '+91');
+  assert(ra?.mobile_without_country_code === '9988776655', 'R1a: mobile is pure digits, no +91 prefix', ra?.mobile_without_country_code, '9988776655');
+
+  // +91 concatenated (no space)
+  const { record: rb } = sanitizeAndValidateRecord({
+    name: 'Test Concat', email: 'test@example.com',
+    mobile_without_country_code: '+919876543210',
+  });
+  assert(rb?.country_code === '+91', 'R1b: +91 extracted from "+919876543210"', rb?.country_code, '+91');
+  assert(rb?.mobile_without_country_code === '9876543210', 'R1b: digits-only after cc strip', rb?.mobile_without_country_code, '9876543210');
+
+  // Clean number — no country code added spuriously
+  const { record: rc } = sanitizeAndValidateRecord({
+    name: 'Test Clean', email: 'clean@example.com',
+    mobile_without_country_code: '9876543210',
+  });
+  assert(!rc?.country_code, 'R1c: no country_code when number has no prefix', rc?.country_code, 'undefined');
+  assert(rc?.mobile_without_country_code === '9876543210', 'R1c: clean 10-digit number unchanged', rc?.mobile_without_country_code, '9876543210');
+}
+
+// ── Refinement 2: invalid/partial phone → blank + crm_note flag ───────────────
+{
+  console.log('\n── Refinement 2: invalid phone handling ──');
+
+  // "98765XXXXX" → 5 digits after strip → invalid → blanked + noted
+  const { record: ra, skipped: sa } = sanitizeAndValidateRecord({
+    name: 'Anjali Mehta', email: 'anjali.mehta@corp.com',
+    mobile_without_country_code: '98765XXXXX',
+    crm_note: 'Phone number is intentionally malformed',
+  });
+  assert(!sa, 'R2a: invalid phone + valid email → NOT skipped', sa, 'false');
+  assert(
+    !ra?.mobile_without_country_code,
+    'R2a: "98765XXXXX" → mobile_without_country_code is blank',
+    ra?.mobile_without_country_code, 'undefined/""'
+  );
+  assert(
+    (ra?.crm_note || '').includes('invalid phone:'),
+    'R2a: crm_note has "invalid phone:" flag',
+    ra?.crm_note, '"...invalid phone: 98765XXXXX..."'
+  );
+
+  // 4-digit number → too short → invalid
+  const { record: rb } = sanitizeAndValidateRecord({
+    name: 'Short', email: 'short@example.com',
+    mobile_without_country_code: '1234',
+  });
+  assert(!rb?.mobile_without_country_code, 'R2b: 4-digit number blanked', rb?.mobile_without_country_code, 'undefined/""');
+  assert((rb?.crm_note || '').includes('invalid phone:'), 'R2b: crm_note flags short number', rb?.crm_note, '"invalid phone: 1234"');
+
+  // Valid 10-digit → unchanged, no flag
+  const { record: rc } = sanitizeAndValidateRecord({
+    name: 'Valid', email: 'valid@example.com',
+    mobile_without_country_code: '9876543210',
+  });
+  assert(rc?.mobile_without_country_code === '9876543210', 'R2c: valid 10-digit unchanged', rc?.mobile_without_country_code, '9876543210');
+  assert(!(rc?.crm_note || '').includes('invalid phone'), 'R2c: valid number has no invalid flag', rc?.crm_note, 'no invalid note');
+
+  // Invalid phone + no email → SKIPPED
+  const { skipped: sd, reason: rd } = sanitizeAndValidateRecord({
+    name: 'Ghost', mobile_without_country_code: '123',
+  });
+  assert(sd, 'R2d: invalid phone + no email = SKIPPED', sd, 'true');
+  assert((rd || '').toLowerCase().includes('missing'), 'R2d: skip reason says "missing"', rd, '"Missing..."');
+}
+
 // ─── Section 2: heuristicMapRows ─────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════');
 console.log(' Section 2: heuristicMapRows()');
