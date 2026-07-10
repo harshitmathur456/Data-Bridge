@@ -630,7 +630,7 @@ export default function Home() {
                     <table className="w-full min-w-max text-sm">
                       <thead className={`border-b border-color ${dark ? "bg-slate-800" : "bg-gray-50"}`}>
                         <tr>
-                          {["CRM ID", "Name", "Email", "Phone", "Company", "City", "CRM Status", "Status"].map(h => (
+                          {["CRM ID", "Name", "Email", "Country Code", "Phone", "Company", "City", "CRM Status", "Status"].map(h => (
                             <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-muted-color">{h}</th>
                           ))}
                         </tr>
@@ -641,7 +641,8 @@ export default function Home() {
                             <td className="px-5 py-3.5 text-[#00463f] font-mono text-xs font-semibold">CRM-{String((resultPage - 1) * PER_PAGE + i + 1).padStart(4, "0")}</td>
                             <td className="px-5 py-3.5 font-semibold text-base-color">{r.name || "—"}</td>
                             <td className="px-5 py-3.5 text-[#00463f]">{r.email || "—"}</td>
-                            <td className="px-5 py-3.5 text-muted-color font-mono text-xs">{r.country_code && <span className="opacity-60">{r.country_code} </span>}{r.mobile_without_country_code || "—"}</td>
+                            <td className="px-5 py-3.5 text-[#00463f] font-mono text-xs">{r.country_code || "—"}</td>
+                            <td className="px-5 py-3.5 text-muted-color font-mono text-xs">{r.mobile_without_country_code || "—"}</td>
                             <td className="px-5 py-3.5 text-base-color">{r.company || "—"}</td>
                             <td className="px-5 py-3.5 text-base-color">{r.city || "—"}</td>
                             <td className="px-5 py-3.5">
@@ -656,7 +657,7 @@ export default function Home() {
                             </td>
                           </tr>
                         ))}
-                        {importedRecords.length === 0 && <tr><td colSpan={8} className="px-5 py-10 text-center text-muted-color">No records were imported.</td></tr>}
+                        {importedRecords.length === 0 && <tr><td colSpan={9} className="px-5 py-10 text-center text-muted-color">No records were imported.</td></tr>}
                       </tbody>
                     </table>
                   ) : (
