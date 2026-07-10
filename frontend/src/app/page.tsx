@@ -23,7 +23,7 @@ interface CRMRecord {
 }
 interface SkippedRecord { row: RawRow; reason: string; }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 // ─── Top progress bar (fixed, shown during import) ──────────────────────────
 function TopProgressBar({ pct, visible }: { pct: number; visible: boolean }) {
@@ -232,7 +232,7 @@ export default function Home() {
 
   // Check backend health
   useEffect(() => {
-    fetch(`${API_BASE_URL}/health`)
+    fetch(`${API_BASE_URL}/api/health`)
       .then(() => {
         setServerOk(true);
         return fetch(`${API_BASE_URL}/api/import`, {
