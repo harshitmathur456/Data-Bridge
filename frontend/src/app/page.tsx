@@ -123,12 +123,14 @@ function TopNav({ current, dark }: { current: Step; dark: boolean }) {
   );
 }
 
-const getFlag = (cc: string) => {
-  if (cc === "+91") return "🇮🇳";
-  if (cc === "+1") return "🇺🇸";
-  if (cc === "+44") return "🇬🇧";
-  if (cc === "+61") return "🇦🇺";
-  return "🌐";
+const getCountryCode = (cc: string) => {
+  if (cc === "+91") return "in";
+  if (cc === "+1") return "us";
+  if (cc === "+44") return "gb";
+  if (cc === "+61") return "au";
+  if (cc === "+86") return "cn";
+  if (cc === "+65") return "sg";
+  return null;
 };
 
 // ─── Main page ───────────────────────────────────────────────────────────────
@@ -650,7 +652,16 @@ export default function Home() {
                             <td className="px-5 py-3.5 font-semibold text-base-color">{r.name || "—"}</td>
                             <td className="px-5 py-3.5 text-[#00463f]">{r.email || "—"}</td>
                             <td className="px-5 py-3.5 text-[#00463f] font-mono text-xs">
-                              {r.country_code ? <span className="inline-flex items-center gap-1.5"><span className="text-sm">{getFlag(r.country_code)}</span>{r.country_code}</span> : "—"}
+                              {r.country_code ? (
+                                <span className="inline-flex items-center gap-1.5">
+                                  {getCountryCode(r.country_code) ? (
+                                    <img src={`https://flagcdn.com/w20/${getCountryCode(r.country_code)}.png`} alt="" className="w-4 h-[11px] object-cover rounded-[1px] shadow-sm" />
+                                  ) : (
+                                    <span className="text-sm">🌐</span>
+                                  )}
+                                  {r.country_code}
+                                </span>
+                              ) : "—"}
                             </td>
                             <td className="px-5 py-3.5 text-muted-color font-mono text-xs">{r.mobile_without_country_code || "—"}</td>
                             <td className="px-5 py-3.5 text-base-color">{r.company || "—"}</td>
