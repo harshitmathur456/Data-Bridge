@@ -87,7 +87,8 @@ function StepperBar({ current, dark }: { current: Step; dark: boolean }) {
 }
 
 // ─── Side nav ───────────────────────────────────────────────────────────────
-function SideNav({ current, dark, onUpload, onPreview }: { current: Step; dark: boolean; onUpload: () => void; onPreview: () => void }) {
+// ─── Top tab nav ────────────────────────────────────────────────────────────
+function TopNav({ current, dark, onUpload, onPreview, rawRowsCount }: { current: Step; dark: boolean; onUpload: () => void; onPreview: () => void; rawRowsCount: number }) {
   const order: Step[] = ["upload", "preview", "importing", "results"];
   const ci = order.indexOf(current);
   const items = [
@@ -95,47 +96,26 @@ function SideNav({ current, dark, onUpload, onPreview }: { current: Step; dark: 
     { id: "preview" as Step, label: "Preview", icon: FileSpreadsheet, action: onPreview },
     { id: "results" as Step, label: "Results", icon: CheckCircle2, action: () => {} },
   ];
+
   return (
-    <aside className="w-52 shrink-0 flex flex-col gap-1 pt-2">
-      <p className={`text-xs font-bold uppercase tracking-widest px-3 mb-2 ${dark ? "text-slate-500" : "text-gray-400"}`}>Import Flow</p>
+    <div className="flex items-center gap-2">
       {items.map((item) => {
         const ii = order.indexOf(item.id);
         const active = item.id === current || (current === "importing" && item.id === "preview");
         const done = ci > ii;
-        const clickable = item.id === "upload" || (item.id === "preview" && ci >= order.indexOf("preview"));
+        const clickable = item.id === "upload" || (item.id === "preview" && rawRowsCount > 0);
         return (
           <button key={item.id} onClick={clickable ? item.action : undefined} disabled={!clickable && !active}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
-              active ? "bg-[#00463f] text-white shadow-sm"
-                : done ? `text-brand ${dark ? "hover:bg-[#00463f]/10" : "hover:bg-[#00463f]/8"}`
-                : dark ? "text-slate-600 cursor-default" : "text-gray-400 cursor-default"
+            className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold transition-all border ${
+              active 
+                ? "bg-brand text-white border-brand shadow-sm"
+                : done 
+                  ? `text-brand border-color ${dark ? "bg-slate-800/40 hover:bg-slate-800" : "bg-white hover:bg-gray-50"}`
+                  : dark ? "text-slate-600 border-slate-850 bg-slate-900/20 cursor-default" : "text-gray-400 border-gray-100 bg-gray-50/50 cursor-default"
             }`}>
-            {done && !active ? <Check className="h-4 w-4 shrink-0" /> : <item.icon className="h-4 w-4 shrink-0" />}
-            {item.label}
+            {done && !active ? <Check className="h-4 w-4 shrink-0 text-brand" /> : <item.icon className="h-4 w-4 shrink-0" />}
+            <span className="hidden sm:inline">{item.label}</span>
           </button>
-        );
-      })}
-    </aside>
-  );
-}
-
-// ─── Top tab nav ────────────────────────────────────────────────────────────
-function TopNav({ current, dark }: { current: Step; dark: boolean }) {
-  const order: Step[] = ["upload", "preview", "importing", "results"];
-  const idx = order.indexOf(current);
-  const tabs = ["Upload", "Preview", "Results"];
-  const tabIds: Step[] = ["upload", "preview", "results"];
-  return (
-    <div className={`flex items-center gap-8 border-b px-6 border-color`}>
-      {tabs.map((t, i) => {
-        const active = tabIds[i] === current || (current === "importing" && tabIds[i] === "preview");
-        const done = idx > order.indexOf(tabIds[i]);
-        return (
-          <button key={t} className={`py-3.5 text-sm font-semibold border-b-2 transition-all ${
-            active ? "border-brand text-brand"
-              : done ? `border-transparent ${dark ? "text-slate-400" : "text-gray-500"} hover:text-gray-700`
-              : `border-transparent ${dark ? "text-slate-600" : "text-gray-400"} cursor-default`
-          }`}>{t}</button>
         );
       })}
     </div>
@@ -446,12 +426,10 @@ export default function Home() {
           <span className="font-bold text-brand text-lg font-display tracking-tight">DataBridge AI</span>
         </div>
 
-        {/* Top tab nav — only on preview/results */}
-        {(step === "preview" || step === "importing" || step === "results") && (
-          <div className="hidden md:block flex-1 mx-6">
-            <TopNav current={step} dark={dark} />
-          </div>
-        )}
+        {/* Top tab nav */}
+        <div className="flex-1 mx-6 flex justify-center">
+          <TopNav current={step} dark={dark} onUpload={reset} onPreview={() => setStep("preview")} rawRowsCount={rawRows.length} />
+        </div>
 
         {/* Right controls */}
         <div className="flex items-center gap-3 shrink-0">
@@ -494,11 +472,7 @@ export default function Home() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* Sidebar — Upload & Results */}
-        {(step === "upload" || step === "results") && (
-          <div className={`w-56 shrink-0 border-r border-color sidebar-bg p-4`}>
-            <SideNav current={step} dark={dark} onUpload={reset} onPreview={() => rawRows.length > 0 && setStep("preview")} />
-          </div>
-        )}
+
 
         <main className="flex-1 overflow-auto">
 
