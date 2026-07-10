@@ -115,6 +115,12 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
   // that still leaves a plausible phone (7–15 digits).  This prevents
   // "+919876543210" being mis-parsed as CC="+919" instead of CC="+91".
   let countryCode = String(raw.country_code || '').trim();
+
+  // Ensure countryCode always has a leading '+' if it consists of digits
+  if (countryCode && /^\d+$/.test(countryCode)) {
+    countryCode = '+' + countryCode;
+  }
+
   if (!countryCode) {
     const rawTrimmed = mobileRaw.trim();
     if (rawTrimmed.startsWith('+')) {
@@ -136,9 +142,26 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
         primaryMobile = best.rest;
       }
     }
-  } else if (primaryMobile.startsWith('+')) {
-    // country_code provided separately — strip any +digits prefix from mobile
+  } else {
+    // country_code provided separately — ensure mobile doesn't contain it
+    // Strip any leading +digits
     primaryMobile = primaryMobile.replace(/^\+\d{1,3}[\s\-]?/, '');
+    
+    // Check if the CC digits leaked into the mobile number without a plus (e.g. LLM returned "91" and "919988776655")
+    const ccDigits = countryCode.replace('+', '');
+    if (ccDigits && primaryMobile.startsWith(ccDigits)) {
+      const remainder = primaryMobile.slice(ccDigits.length);
+      // Only strip if the remaining part looks like a valid phone length (e.g., >= 7 digits)
+      // This prevents stripping if the actual mobile number coincidentally starts with those digits
+      if (remainder.length >= 7 && remainder.length <= 15) {
+        // As a heuristic for India, prefer 10 digit remainders if CC is 91
+        if (ccDigits === '91' && remainder.length === 10) {
+          primaryMobile = remainder;
+        } else if (ccDigits !== '91') {
+          primaryMobile = remainder;
+        }
+      }
+    }
   }
 
   // Keep only digits in the final mobile value
