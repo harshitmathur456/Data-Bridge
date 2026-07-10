@@ -45,27 +45,25 @@ An intelligent, 3-step CSV import wizard that maps arbitrary CSV layouts to a fi
 
 ```
 groweasy-csv-importer/
-├── backend/                   # Express API server
-│   ├── src/
-│   │   ├── server.ts          # Express entry point
-│   │   ├── routes/import.ts   # POST /api/import
-│   │   ├── services/
-│   │   │   ├── geminiService.ts    # Gemini AI mapping + heuristic fallback
-│   │   │   └── supabaseService.ts  # Supabase persistence
-│   │   └── utils/validation.ts     # Schema validation & enum clamping
-│   ├── tests/validation.test.ts    # Unit tests
-│   └── .env.example
-├── frontend/                  # Next.js app
-│   └── src/app/
-│       ├── page.tsx           # Full 4-step wizard UI
-│       ├── layout.tsx         # Root layout + fonts
-│       └── globals.css        # Tailwind v4 theme tokens
+├── frontend/                  # Unified Next.js application
+│   ├── src/app/
+│   │   ├── api/               # Next.js Serverless API Routes
+│   │   │   ├── health/route.ts   # GET /api/health
+│   │   │   ├── import/route.ts   # POST /api/import
+│   │   │   └── login/route.ts    # POST /api/login
+│   │   ├── page.tsx           # Full 4-step wizard UI
+│   │   ├── layout.tsx         # Root layout + fonts
+│   │   └── globals.css        # Tailwind v4 theme tokens
+│   ├── src/services/
+│   │   ├── geminiService.ts   # Gemini AI matching, rotation & failover
+│   │   └── supabaseService.ts # Supabase database integration
+│   ├── src/utils/
+│   │   └── validation.ts      # Data validation & enum clamping rules
+│   └── package.json
+├── backend/                   # Legacy Express API server (backup)
 ├── supabase/schema.sql        # DB schema — run in Supabase SQL Editor
-├── sample_csvs/               # Test files
-│   ├── standard_leads.csv
-│   ├── messy_ad_leads.csv     # Different column names, extra emails/phones
-│   └── invalid_leads.csv      # Tests skip logic
-└── package.json               # Root workspace orchestrator
+├── sample_csvs/               # Test CSV files
+└── package.json               # Workspace root
 ```
 
 ---
@@ -74,47 +72,36 @@ groweasy-csv-importer/
 
 ### Prerequisites
 - Node.js v18+ and npm
-- A Supabase project (free tier works)
-- A Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey) *(optional — app works without one in mock mode)*
+- A Supabase project
+- A Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey) *(optional — rotates up to 3 keys, falls back to heuristic if empty)*
 
-### 1. Clone & Install
-
-```bash
-git clone https://github.com/harshitmathur456/Data-Bridge.git
-cd Data-Bridge
-npm install          # installs root deps (concurrently)
-npm run install:all  # installs backend + frontend deps
-```
-
-### 2. Configure Backend Environment
+### 1. Install Dependencies
 
 ```bash
-cp backend/.env.example backend/.env
+cd frontend
+npm install
 ```
 
-Edit `backend/.env`:
+### 2. Configure Environment
+
+Create a `.env.local` file inside the `frontend` folder:
 ```env
-PORT=3001
-GEMINI_API_KEY=your_gemini_api_key_here   # optional
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_ANON_KEY=your_supabase_anon_key
+GEMINI_API_KEYS=key1,key2,key3
 ```
 
 ### 3. Set Up Supabase Database
-
 1. Go to your [Supabase project](https://supabase.com/dashboard) → **SQL Editor**
-2. Paste and run the contents of `supabase/schema.sql`
-3. This creates: `import_sessions`, `crm_records`, and `skipped_rows` tables
+2. Run the SQL statements from `supabase/schema.sql`.
 
-### 4. Run Development Servers
+### 4. Run Development Server
 
 ```bash
 npm run dev
 ```
 
-This starts:
-- **Backend** → `http://localhost:3001`
-- **Frontend** → `http://localhost:3000`
+This starts the application locally at `http://localhost:3000` (handling both pages and API routes).
 
 ---
 
@@ -183,38 +170,34 @@ Three sample files are in `sample_csvs/`:
 
 ## 🐳 Docker Setup
 
-This project can be run inside Docker containers using Docker Compose. A multi-stage build is configured to optimize image size.
+This project can be run inside a standalone Docker container. A multi-stage build is configured to optimize image size.
 
 ### Prerequisites
-- Docker and Docker Compose installed on your host system.
+- Docker installed on your host system.
 
-### Running with Docker Compose
-1. Ensure your backend environment variables are configured in `backend/.env` (refer to `backend/.env.example`).
-2. Run the following command from the project root:
-   ```bash
-   docker-compose up --build
-   ```
-3. This will build both the frontend and backend images and run them:
-   - **Frontend** → `http://localhost:3000`
-   - **Backend** → `http://localhost:3001`
-
-### Running Standalone Frontend Container
-If you wish to build and run only the Next.js frontend container:
-1. Build the image:
+### Running the Container
+1. Ensure your environment variables are configured in `frontend/.env.local`.
+2. Build the image from root directory:
    ```bash
    docker build -t databridge-ai .
    ```
-2. Run the container:
+3. Run the container (injecting your env variables):
    ```bash
-   docker run -p 3000:3000 databridge-ai
+   docker run -p 3000:3000 --env-file frontend/.env.local databridge-ai
    ```
+4. Access the full app (including API endpoints) at `http://localhost:3000`.
 
 ---
 
 ## 📦 Deployment
 
-- **Frontend** → Vercel (`npm run build` in `/frontend`)
-- **Backend** → Render or Railway (set env vars in dashboard)
+### Frontend & API (Unified) → Vercel
+1. Set **Root Directory** as `frontend` in your Vercel project configuration page.
+2. In Vercel **Environment Variables**, add:
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY`
+   - `GEMINI_API_KEYS`
+3. Vercel will automatically build and serve the entire application as a single project!
 
 ---
 
