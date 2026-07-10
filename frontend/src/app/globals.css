@@ -16,6 +16,9 @@
   --text-base:  #1a1a1a;
   --text-muted: #64748b;
   --text-faint: #94a3b8;
+  --text-brand: #00463f;
+  --border-brand: #00463f;
+  --bg-brand: #00463f;
 }
 
 html.dark {
@@ -28,6 +31,9 @@ html.dark {
   --text-base:  #f1f5f9;
   --text-muted: #94a3b8;
   --text-faint: #475569;
+  --text-brand: #34d399; /* emerald-400 */
+  --border-brand: #34d399;
+  --bg-brand: #10b981; /* emerald-500 */
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -73,3 +79,6 @@ html.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; }
 .border-color { border-color: var(--border); }
 .hover-bg:hover { background-color: var(--bg-hover); }
 .input-bg { background-color: var(--bg-input); }
+.text-brand { color: var(--text-brand); }
+.border-brand { border-color: var(--border-brand); }
+.bg-brand { background-color: var(--bg-brand); }

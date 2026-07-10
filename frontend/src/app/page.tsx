@@ -59,16 +59,16 @@ function StepperBar({ current, dark }: { current: Step; dark: boolean }) {
           const active = s.id === current || (current === "importing" && s.id === "preview");
           return (
             <React.Fragment key={s.id}>
-              {i > 0 && <div className={`h-px w-16 mx-1 ${done || active ? "bg-[#00463f]" : dark ? "bg-slate-700" : "bg-gray-200"}`} />}
+              {i > 0 && <div className={`h-px w-16 mx-1 ${done || active ? "bg-brand" : dark ? "bg-slate-700" : "bg-gray-200"}`} />}
               <div className="flex flex-col items-center gap-1">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
-                  done ? "bg-[#00463f] border-[#00463f] text-white"
-                    : active ? `border-[#00463f] text-[#00463f] ${dark ? "bg-slate-800" : "bg-white"}`
+                  done ? "bg-[#00463f] border-brand text-white"
+                    : active ? `border-brand text-brand ${dark ? "bg-slate-800" : "bg-white"}`
                     : dark ? "border-slate-600 text-slate-500 bg-slate-800" : "border-gray-300 text-gray-400 bg-white"
                 }`}>
                   {done ? <Check className="h-4 w-4" /> : i + 1}
                 </div>
-                <span className={`text-[11px] font-semibold ${active || done ? "text-[#00463f]" : dark ? "text-slate-500" : "text-gray-400"}`}>{s.label}</span>
+                <span className={`text-[11px] font-semibold ${active || done ? "text-brand" : dark ? "text-slate-500" : "text-gray-400"}`}>{s.label}</span>
               </div>
             </React.Fragment>
           );
@@ -78,9 +78,9 @@ function StepperBar({ current, dark }: { current: Step; dark: boolean }) {
       {/* Horizontal Progress Bar & Percentage */}
       <div className="w-48 flex flex-col gap-1 items-center mt-1">
         <div className={`w-full h-1.5 rounded-full overflow-hidden ${dark ? "bg-slate-850" : "bg-gray-200"}`}>
-          <div className="h-full bg-[#00463f] rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+          <div className="h-full bg-brand rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
         </div>
-        <span className="text-[10px] font-bold text-[#00463f]">{pct}% Completed</span>
+        <span className="text-[10px] font-bold text-brand">{pct}% Completed</span>
       </div>
     </div>
   );
@@ -107,7 +107,7 @@ function SideNav({ current, dark, onUpload, onPreview }: { current: Step; dark: 
           <button key={item.id} onClick={clickable ? item.action : undefined} disabled={!clickable && !active}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
               active ? "bg-[#00463f] text-white shadow-sm"
-                : done ? `text-[#00463f] ${dark ? "hover:bg-[#00463f]/10" : "hover:bg-[#00463f]/8"}`
+                : done ? `text-brand ${dark ? "hover:bg-[#00463f]/10" : "hover:bg-[#00463f]/8"}`
                 : dark ? "text-slate-600 cursor-default" : "text-gray-400 cursor-default"
             }`}>
             {done && !active ? <Check className="h-4 w-4 shrink-0" /> : <item.icon className="h-4 w-4 shrink-0" />}
@@ -132,7 +132,7 @@ function TopNav({ current, dark }: { current: Step; dark: boolean }) {
         const done = idx > order.indexOf(tabIds[i]);
         return (
           <button key={t} className={`py-3.5 text-sm font-semibold border-b-2 transition-all ${
-            active ? "border-[#00463f] text-[#00463f]"
+            active ? "border-brand text-brand"
               : done ? `border-transparent ${dark ? "text-slate-400" : "text-gray-500"} hover:text-gray-700`
               : `border-transparent ${dark ? "text-slate-600" : "text-gray-400"} cursor-default`
           }`}>{t}</button>
@@ -443,7 +443,7 @@ export default function Home() {
           <div className="h-8 w-8 rounded-lg bg-[#00463f] flex items-center justify-center">
             <Database className="h-4 w-4 text-white" />
           </div>
-          <span className="font-bold text-[#00463f] text-lg font-display tracking-tight">DataBridge AI</span>
+          <span className="font-bold text-brand text-lg font-display tracking-tight">DataBridge AI</span>
         </div>
 
         {/* Top tab nav — only on preview/results */}
@@ -635,7 +635,7 @@ export default function Home() {
                               {headers.map(h => (
                                 <td key={h} className="px-5 py-3 max-w-[180px] truncate whitespace-nowrap text-base-color">
                                   {row[h]
-                                    ? /email|mail/i.test(h) ? <span className="text-[#00463f]">{row[h]}</span> : row[h]
+                                    ? /email|mail/i.test(h) ? <span className="text-brand">{row[h]}</span> : row[h]
                                     : <span className="text-muted-color opacity-40">—</span>}
                                 </td>
                               ))}
@@ -651,12 +651,12 @@ export default function Home() {
 
                   {/* Pagination */}
                   <div className={`border-t border-color px-5 py-3 flex items-center justify-between text-xs ${dark ? "bg-slate-800/40" : "bg-gray-50"}`}>
-                    <span className="text-[#00463f] font-medium">
+                    <span className="text-brand font-medium">
                       Showing {filtered.length === 0 ? 0 : (previewPage - 1) * PER_PAGE + 1}–{Math.min(previewPage * PER_PAGE, filtered.length)} of {filtered.length.toLocaleString()} entries
                     </span>
                     <div className="flex items-center gap-1">
                       <button onClick={() => setPreviewPage(p => Math.max(p - 1, 1))} disabled={previewPage === 1} className={pageBtnCls}><ChevronLeft className="h-3.5 w-3.5 text-muted-color" /></button>
-                      <span className="px-3 py-1 rounded-lg bg-[#00463f] text-white font-bold text-[11px]">{previewPage}</span>
+                      <span className="px-3 py-1 rounded-lg bg-brand text-white font-bold text-[11px]">{previewPage}</span>
                       <button onClick={() => setPreviewPage(p => Math.min(p + 1, totalPreviewPages))} disabled={previewPage === totalPreviewPages} className={pageBtnCls}><ChevronRight className="h-3.5 w-3.5 text-muted-color" /></button>
                     </div>
                   </div>
@@ -718,7 +718,7 @@ export default function Home() {
                         ? `Batch ${importingState.current} of ${importingState.total}`
                         : `Batch ${batchProgress.filter(p => p.status !== "idle").length} of ${batchProgress.length}`}
                     </span>
-                    <span className="font-bold text-[#00463f]">{Math.round(progressPct)}% Complete</span>
+                    <span className="font-bold text-brand">{Math.round(progressPct)}% Complete</span>
                   </div>
                 </div>
               </div>
@@ -810,7 +810,7 @@ export default function Home() {
               <div className={`flex border-b border-color`}>
                 {(["imported", "skipped"] as const).map(tab => (
                   <button key={tab} onClick={() => { setResultTab(tab); setResultPage(1); }}
-                    className={`px-6 py-3.5 text-sm font-semibold border-b-2 transition-all ${resultTab === tab ? "border-[#00463f] text-[#00463f]" : `border-transparent ${dark ? "text-slate-500" : "text-gray-400"} hover:text-gray-600`}`}>
+                    className={`px-6 py-3.5 text-sm font-semibold border-b-2 transition-all ${resultTab === tab ? "border-brand text-brand" : `border-transparent ${dark ? "text-slate-500" : "text-gray-400"} hover:text-gray-600`}`}>
                     {tab === "imported" ? `Imported Records (${importedRecords.length})` : `Skipped Rows (${skippedRecords.length})`}
                   </button>
                 ))}
@@ -831,10 +831,10 @@ export default function Home() {
                       <tbody className={`divide-y ${dark ? "divide-slate-700/50" : "divide-gray-50"}`}>
                         {paginatedImported.map((r, i) => (
                           <tr key={i} className="hover-bg transition-colors">
-                            <td className="px-5 py-3.5 text-[#00463f] font-mono text-xs font-semibold">CRM-{String((resultPage - 1) * PER_PAGE + i + 1).padStart(4, "0")}</td>
+                            <td className="px-5 py-3.5 text-brand font-mono text-xs font-semibold">CRM-{String((resultPage - 1) * PER_PAGE + i + 1).padStart(4, "0")}</td>
                             <td className="px-5 py-3.5 font-semibold text-base-color">{r.name || "—"}</td>
-                            <td className="px-5 py-3.5 text-[#00463f]">{r.email || "—"}</td>
-                            <td className="px-5 py-3.5 text-[#00463f] font-mono text-xs">
+                            <td className="px-5 py-3.5 text-brand">{r.email || "—"}</td>
+                            <td className="px-5 py-3.5 text-brand font-mono text-xs">
                               {r.country_code ? (
                                 <span className="inline-flex items-center gap-1.5">
                                   {getCountryCode(r.country_code) ? (
@@ -890,13 +890,13 @@ export default function Home() {
                 </div>
                 {/* Pagination */}
                 <div className={`border-t border-color px-5 py-3 flex items-center justify-between text-xs ${dark ? "bg-slate-800/40" : "bg-gray-50"}`}>
-                  <span className="text-[#00463f] font-medium">
+                  <span className="text-brand font-medium">
                     Showing {(resultTab === "imported" ? importedRecords : skippedRecords).length === 0 ? "0"
                       : `${(resultPage - 1) * PER_PAGE + 1}–${Math.min(resultPage * PER_PAGE, (resultTab === "imported" ? importedRecords : skippedRecords).length)}`} of {(resultTab === "imported" ? importedRecords : skippedRecords).length.toLocaleString()}
                   </span>
                   <div className="flex items-center gap-1">
                     <button onClick={() => setResultPage(p => Math.max(p - 1, 1))} disabled={resultPage === 1} className={pageBtnCls}><ChevronLeft className="h-3.5 w-3.5 text-muted-color" /></button>
-                    <span className="px-3 py-1 rounded-lg bg-[#00463f] text-white font-bold text-[11px]">{resultPage}</span>
+                    <span className="px-3 py-1 rounded-lg bg-brand text-white font-bold text-[11px]">{resultPage}</span>
                     <button onClick={() => setResultPage(p => Math.min(p + 1, totalResultPages))} disabled={resultPage === totalResultPages} className={pageBtnCls}><ChevronRight className="h-3.5 w-3.5 text-muted-color" /></button>
                   </div>
                 </div>
