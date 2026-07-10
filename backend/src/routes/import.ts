@@ -32,8 +32,40 @@ router.post('/', async (req: Request<{}, {}, ImportRequest>, res: Response) => {
     const isMock = !process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY';
     res.setHeader('X-Mock-AI', isMock ? 'true' : 'false');
 
-    // Map this batch via Gemini (or heuristic fallback)
-    const mappedRows = rows.length > 0 ? await mapBatchWithGemini(rows) : [];
+    // Map this batch via Gemini (or heuristic fallback) with up to 2 retries (3 attempts total)
+    let mappedRows: any[] = [];
+    let failed = false;
+    let errorMessage = '';
+
+    if (rows.length > 0) {
+      let attempts = 0;
+      const maxRetries = 2;
+      while (attempts <= maxRetries) {
+        try {
+          mappedRows = await mapBatchWithGemini(rows);
+          failed = false;
+          break;
+        } catch (err: any) {
+          attempts++;
+          errorMessage = err?.message || String(err);
+          console.warn(`[Gemini Ingestion Attempt ${attempts} Failed]: ${errorMessage}`);
+          if (attempts <= maxRetries) {
+            const delay = Math.pow(2, attempts) * 1000; // 2s, 4s delay
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            failed = true;
+          }
+        }
+      }
+    }
+
+    if (failed) {
+      return res.status(200).json({
+        failed: true,
+        error: `Batch failed after 2 retries. Error: ${errorMessage}`,
+        failedRows: rows
+      });
+    }
 
     const imported: CRMRecord[] = [];
     const skipped: { row: RawRow; reason: string }[] = [];

@@ -149,12 +149,22 @@ export default function Home() {
   const [skippedRecords, setSkippedRecords] = useState<SkippedRecord[]>([]);
   const [supabaseSaved, setSupabaseSaved] = useState(false);
   const [aiEngine, setAiEngine] = useState("Local Mock Mapper");
-  const [batchProgress, setBatchProgress] = useState<{ n: number; status: "idle" | "running" | "done" | "error" }[]>([]);
+  
+  // Progress & Retry States
+  const [batchProgress, setBatchProgress] = useState<{ n: number; status: "idle" | "running" | "done" | "error"; errorMsg?: string }[]>([]);
+  const [failedChunks, setFailedChunks] = useState<{ chunk: RawRow[]; originalIndex: number }[]>([]);
+  const [importingState, setImportingState] = useState<{ total: number; current: number; status: "idle" | "running" | "done" }>({ total: 0, current: 0, status: "idle" });
+  
+  // Incremental Parsing States
+  const [isParsing, setIsParsing] = useState(false);
+  const [parsedCount, setParsedCount] = useState(0);
+  const [totalRowsToParse, setTotalRowsToParse] = useState(0);
+
   const [logs, setLogs] = useState<string[]>([]);
   const [serverOk, setServerOk] = useState<boolean | null>(null);
   const [geminiLive, setGeminiLive] = useState<boolean | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const BATCH = 15;
+  const BATCH = 20; // 20 rows/batch as requested
   const PER_PAGE = 10;
 
   // Apply dark class to <html>
@@ -181,23 +191,67 @@ export default function Home() {
     ? (batchProgress.filter(p => p.status === "done" || p.status === "error").length / batchProgress.length) * 100
     : 0;
 
-  const processFile = useCallback((f: File) => {
+  const processFile = useCallback(async (f: File) => {
     if (!f.name.endsWith(".csv")) return alert("Only .csv files allowed.");
     setFile(f);
+    setIsParsing(true);
+    setParsedCount(0);
+    setTotalRowsToParse(0);
+    setRawRows([]);
+    setHeaders([]);
+
+    try {
+      const text = await f.text();
+      const lines = text.split(/\r\n|\n/).filter(line => line.trim());
+      setTotalRowsToParse(lines.length > 1 ? lines.length - 1 : 0);
+    } catch (err) {
+      console.error("Error estimating lines:", err);
+    }
+
+    const parsed: RawRow[] = [];
+    let fieldsDetected = false;
+
     Papa.parse(f, {
-      header: true, skipEmptyLines: "greedy",
-      complete: res => {
-        if (!res.data.length) { alert("CSV is empty."); setFile(null); return; }
-        setHeaders(res.meta.fields || []);
-        setRawRows(res.data as RawRow[]);
+      header: true,
+      skipEmptyLines: "greedy",
+      step: (results) => {
+        if (results.data) {
+          parsed.push(results.data as RawRow);
+          if (!fieldsDetected && results.meta?.fields) {
+            setHeaders(results.meta.fields);
+            fieldsDetected = true;
+          }
+          if (parsed.length % 25 === 0) {
+            setRawRows([...parsed]);
+          }
+          setParsedCount(parsed.length);
+        }
+      },
+      complete: () => {
+        setRawRows(parsed);
+        setParsedCount(parsed.length);
+        setIsParsing(false);
         setPreviewPage(1);
       },
-      error: e => { alert("Parse error: " + e.message); setFile(null); },
+      error: e => {
+        alert("Parse error: " + e.message);
+        setFile(null);
+        setIsParsing(false);
+      },
     });
   }, []);
 
   const removeFile = () => { setFile(null); setHeaders([]); setRawRows([]); if (fileRef.current) fileRef.current.value = ""; };
-  const reset = () => { removeFile(); setImportedRecords([]); setSkippedRecords([]); setSupabaseSaved(false); setStep("upload"); };
+  const reset = () => { 
+    removeFile(); 
+    setImportedRecords([]); 
+    setSkippedRecords([]); 
+    setSupabaseSaved(false); 
+    setFailedChunks([]);
+    setParsedCount(0);
+    setTotalRowsToParse(0);
+    setStep("upload"); 
+  };
 
   const filtered = useMemo(() =>
     search ? rawRows.filter(r => Object.values(r).some(v => v.toLowerCase().includes(search.toLowerCase()))) : rawRows,
@@ -215,32 +269,42 @@ export default function Home() {
   const startImport = async () => {
     setStep("importing");
     setImportedRecords([]); setSkippedRecords([]); setLogs([]); setSupabaseSaved(false);
+    setFailedChunks([]);
+    
     const chunks: RawRow[][] = [];
     for (let i = 0; i < rawRows.length; i += BATCH) chunks.push(rawRows.slice(i, i + BATCH));
+    
     setBatchProgress(chunks.map((_, i) => ({ n: i + 1, status: "idle" })));
+    setImportingState({ total: chunks.length, current: 0, status: "running" });
     setLogs([`Starting import of ${rawRows.length} records across ${chunks.length} batch${chunks.length > 1 ? "es" : ""}…`]);
 
     let imp: CRMRecord[] = [], skip: SkippedRecord[] = [], engine = "Local Mock Mapper";
 
     for (let i = 0; i < chunks.length; i++) {
       const bn = i + 1;
+      setImportingState(prev => ({ ...prev, current: bn }));
       const isFinalBatch = i === chunks.length - 1;
       setBatchProgress(p => p.map(x => x.n === bn ? { ...x, status: "running" } : x));
       setLogs(p => [...p, `[Batch ${bn}/${chunks.length}] Mapping ${chunks[i].length} rows…`]);
-      let ok = false;
-      for (let attempt = 0; attempt < 2 && !ok; attempt++) {
-        try {
-          const res = await fetch("http://localhost:3001/api/import", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              rows: chunks[i], fileName: file?.name, isFinalBatch,
-              allImported: isFinalBatch ? imp : undefined,
-              allSkipped: isFinalBatch ? skip : undefined,
-              totalRows: rawRows.length, aiEngine: engine,
-            }),
-          });
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const data = await res.json();
+      
+      try {
+        const res = await fetch("http://localhost:3001/api/import", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rows: chunks[i], fileName: file?.name, isFinalBatch: isFinalBatch && failedChunks.length === 0,
+            allImported: isFinalBatch ? imp : undefined,
+            allSkipped: isFinalBatch ? skip : undefined,
+            totalRows: rawRows.length, aiEngine: engine,
+          }),
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        
+        if (data.failed) {
+          setLogs(p => [...p, `[Batch ${bn}/${chunks.length}] ✗ Failed after 2 retries: ${data.error}`]);
+          setBatchProgress(p => p.map(x => x.n === bn ? { ...x, status: "error", errorMsg: data.error } : x));
+          setFailedChunks(p => [...p, { chunk: chunks[i], originalIndex: i }]);
+        } else {
           if (res.headers.get("X-Mock-AI") === "false") engine = "Gemini 2.0 Flash";
           imp = [...imp, ...(data.imported || [])];
           skip = [...skip, ...(data.skipped || [])];
@@ -250,17 +314,84 @@ export default function Home() {
           }
           setLogs(p => [...p, `[Batch ${bn}/${chunks.length}] ✓ Done — ${data.total_imported} imported, ${data.total_skipped} skipped`]);
           setBatchProgress(p => p.map(x => x.n === bn ? { ...x, status: "done" } : x));
-          ok = true;
-        } catch (e: any) {
-          if (attempt === 1) {
-            setLogs(p => [...p, `[Batch ${bn}/${chunks.length}] ✗ Failed: ${e.message}`]);
-            setBatchProgress(p => p.map(x => x.n === bn ? { ...x, status: "error" } : x));
-          }
         }
+      } catch (e: any) {
+        setLogs(p => [...p, `[Batch ${bn}/${chunks.length}] ✗ Request error: ${e.message}`]);
+        setBatchProgress(p => p.map(x => x.n === bn ? { ...x, status: "error", errorMsg: e.message } : x));
+        setFailedChunks(p => [...p, { chunk: chunks[i], originalIndex: i }]);
       }
     }
+    
     setImportedRecords(imp); setSkippedRecords(skip); setAiEngine(engine);
+    setImportingState(prev => ({ ...prev, status: "done" }));
     setResultPage(1); setResultTab("imported"); setStep("results");
+  };
+
+  const retryFailedBatches = async () => {
+    if (failedChunks.length === 0) return;
+    setStep("importing");
+    setImportingState({ total: failedChunks.length, current: 0, status: "running" });
+    setLogs(p => [...p, `Retrying ${failedChunks.length} failed batches…`]);
+
+    const remainingFailed: { chunk: RawRow[]; originalIndex: number }[] = [];
+    let imp = [...importedRecords];
+    let skip = [...skippedRecords];
+    let engine = aiEngine;
+
+    // Reset progress statuses for the failed batches
+    setBatchProgress(p => p.map(x => {
+      const isFailed = failedChunks.some(f => f.originalIndex + 1 === x.n);
+      return isFailed ? { ...x, status: "idle" as const, errorMsg: undefined } : x;
+    }));
+
+    for (let i = 0; i < failedChunks.length; i++) {
+      const item = failedChunks[i];
+      const bn = item.originalIndex + 1;
+      setImportingState(prev => ({ ...prev, current: i + 1 }));
+      setBatchProgress(p => p.map(x => x.n === bn ? { ...x, status: "running" } : x));
+      setLogs(p => [...p, `[Batch ${bn}] Retrying mapping ${item.chunk.length} rows…`]);
+
+      const isFinalBatch = i === failedChunks.length - 1 && remainingFailed.length === 0;
+
+      try {
+        const res = await fetch("http://localhost:3001/api/import", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rows: item.chunk, fileName: file?.name, isFinalBatch,
+            allImported: isFinalBatch ? imp : undefined,
+            allSkipped: isFinalBatch ? skip : undefined,
+            totalRows: rawRows.length, aiEngine: engine,
+          }),
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+
+        if (data.failed) {
+          setLogs(p => [...p, `[Batch ${bn}] ✗ Failed again: ${data.error}`]);
+          setBatchProgress(p => p.map(x => x.n === bn ? { ...x, status: "error", errorMsg: data.error } : x));
+          remainingFailed.push(item);
+        } else {
+          if (res.headers.get("X-Mock-AI") === "false") engine = "Gemini 2.0 Flash";
+          imp = [...imp, ...(data.imported || [])];
+          skip = [...skip, ...(data.skipped || [])];
+          if (isFinalBatch && data.supabase_saved) {
+            setSupabaseSaved(true);
+            setLogs(p => [...p, `[Supabase] ✓ Saved — Session ID: ${data.session_id}`]);
+          }
+          setLogs(p => [...p, `[Batch ${bn}] ✓ Done (Retried) — ${data.total_imported} imported, ${data.total_skipped} skipped`]);
+          setBatchProgress(p => p.map(x => x.n === bn ? { ...x, status: "done" } : x));
+        }
+      } catch (e: any) {
+        setLogs(p => [...p, `[Batch ${bn}] ✗ Request error on retry: ${e.message}`]);
+        setBatchProgress(p => p.map(x => x.n === bn ? { ...x, status: "error", errorMsg: e.message } : x));
+        remainingFailed.push(item);
+      }
+    }
+
+    setImportedRecords(imp); setSkippedRecords(skip); setAiEngine(engine);
+    setFailedChunks(remainingFailed);
+    setImportingState(prev => ({ ...prev, status: "done" }));
+    setResultPage(1); setStep("results");
   };
 
   const paginatedImported = useMemo(() => importedRecords.slice((resultPage - 1) * PER_PAGE, resultPage * PER_PAGE), [importedRecords, resultPage]);
@@ -379,14 +510,33 @@ export default function Home() {
                       <Sparkles className="h-3.5 w-3.5 fill-current" /> AI Parsing Enabled
                     </span>
                   </div>
+                ) : isParsing ? (
+                  <div className={`${cardCls} p-5 flex flex-col gap-3 shadow-sm`}>
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-50 dark:bg-emerald-950/20">
+                        <div className="h-5 w-5 rounded-full border-2 border-emerald-600/20 border-t-emerald-600 animate-spin" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate font-display text-base-color">Parsing {file?.name}...</p>
+                        <p className="text-xs text-[#00463f] font-semibold mt-0.5">
+                          Parsed {parsedCount} {totalRowsToParse > 0 ? `of ${totalRowsToParse}` : ""} rows...
+                        </p>
+                      </div>
+                    </div>
+                    {totalRowsToParse > 0 && (
+                      <div className={`w-full h-1.5 rounded-full overflow-hidden ${dark ? "bg-slate-700" : "bg-gray-100"}`}>
+                        <div className="h-full bg-emerald-600 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, (parsedCount / totalRowsToParse) * 100)}%` }} />
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className={`${cardCls} p-5 flex items-center gap-4 shadow-sm`}>
                     <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${dark ? "bg-emerald-900/30" : "bg-emerald-50"}`}>
                       <FileSpreadsheet className="h-6 w-6 text-emerald-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate font-display text-base-color">{file.name}</p>
-                      <p className="text-xs text-muted-color mt-0.5">{(file.size / 1024).toFixed(1)} KB · {rawRows.length.toLocaleString()} rows parsed</p>
+                      <p className="font-semibold truncate font-display text-base-color">{file?.name}</p>
+                      <p className="text-xs text-muted-color mt-0.5">{file ? (file.size / 1024).toFixed(1) : 0} KB · {rawRows.length.toLocaleString()} rows parsed</p>
                     </div>
                     <button onClick={removeFile} className="p-2 rounded-lg text-muted-color hover:bg-red-100 hover:text-red-500 transition-colors">
                       <X className="h-4 w-4" />
@@ -395,7 +545,7 @@ export default function Home() {
                 )}
 
                 <div className="flex justify-end mt-6">
-                  <button disabled={!file} onClick={() => setStep("preview")}
+                  <button disabled={!file || isParsing} onClick={() => setStep("preview")}
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#00463f] text-white text-sm font-semibold hover:bg-[#225e56] transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed">
                     Continue to Mapping <ArrowRight className="h-4 w-4" />
                   </button>
@@ -515,8 +665,14 @@ export default function Home() {
                   <div className={`h-14 w-14 rounded-2xl flex items-center justify-center mb-4 animate-bounce ${dark ? "bg-purple-900/30" : "bg-purple-50"}`}>
                     <Sparkles className="h-7 w-7 text-purple-500 fill-current" />
                   </div>
-                  <h2 className="text-2xl font-bold font-display text-base-color mb-1">AI Mapping in Progress</h2>
-                  <p className="text-sm text-muted-color mb-6">Gemini is intelligently mapping your CSV. Please wait…</p>
+                  <h2 className="text-2xl font-bold font-display text-base-color mb-1">
+                    {failedChunks.length > 0 && importingState.status === "running" ? "Retrying Failed Batches" : "AI Mapping in Progress"}
+                  </h2>
+                  <p className="text-sm text-muted-color mb-6">
+                    {importingState.status === "running"
+                      ? `Processing batch ${importingState.current} of ${importingState.total}…`
+                      : "Gemini is intelligently mapping your CSV. Please wait…"}
+                  </p>
 
                   {/* Large progress bar */}
                   <div className={`w-full h-3 rounded-full overflow-hidden mb-3 ${dark ? "bg-slate-700" : "bg-gray-100"}`}>
@@ -527,18 +683,22 @@ export default function Home() {
                   {/* Batch pill grid */}
                   <div className="flex flex-wrap gap-1.5 justify-center mb-3">
                     {batchProgress.map(b => (
-                      <div key={b.n} title={`Batch ${b.n}`}
+                      <div key={b.n} title={b.status === "error" ? `Batch ${b.n} Failed: ${b.errorMsg || ""}` : `Batch ${b.n}`}
                         className={`h-2 w-6 rounded-full transition-all ${
                           b.status === "done" ? "bg-emerald-500"
                           : b.status === "running" ? "progress-bar-animated"
-                          : b.status === "error" ? "bg-red-400"
+                          : b.status === "error" ? "bg-red-500 shadow-sm shadow-red-500/50"
                           : dark ? "bg-slate-700" : "bg-gray-200"
                         }`} />
                     ))}
                   </div>
 
                   <div className="flex justify-between w-full text-xs text-muted-color font-medium">
-                    <span>Batch {batchProgress.filter(p => p.status !== "idle").length} of {batchProgress.length}</span>
+                    <span>
+                      {importingState.status === "running" 
+                        ? `Batch ${importingState.current} of ${importingState.total}`
+                        : `Batch ${batchProgress.filter(p => p.status !== "idle").length} of ${batchProgress.length}`}
+                    </span>
                     <span className="font-bold text-[#00463f]">{Math.round(progressPct)}% Complete</span>
                   </div>
                 </div>
@@ -592,6 +752,32 @@ export default function Home() {
                   <Plus className="h-4 w-4" /> Start New Import
                 </button>
               </div>
+
+              {failedChunks.length > 0 && (
+                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0 text-red-600 dark:text-red-400">
+                      <AlertTriangle className="h-5 w-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-red-900 dark:text-red-200 text-base">Some batches failed processing</h3>
+                      <p className="text-sm text-red-700 dark:text-red-300/80 mt-0.5">
+                        {failedChunks.length} batch(es) ({failedChunks.reduce((acc, curr) => acc + curr.chunk.length, 0)} rows) failed to process with AI after 2 retries. You can retry importing these.
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {failedChunks.map(f => (
+                          <span key={f.originalIndex} className="text-[10px] font-bold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full">
+                            Batch {f.originalIndex + 1} ({f.chunk.length} rows)
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={retryFailedBatches} className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-all shadow-sm shrink-0 active:scale-95">
+                    <RefreshCw className="h-4 w-4" /> Retry Failed Batches
+                  </button>
+                </div>
+              )}
 
               {/* Metric bento cards */}
               <div className="grid grid-cols-2 gap-5">
