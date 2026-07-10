@@ -306,21 +306,37 @@ Example output:
 // ─────────────────────────────────────────────────────────────────────────────
 // Main export
 // ─────────────────────────────────────────────────────────────────────────────
-export async function mapBatchWithGemini(rows: RawRow[]): Promise<any[]> {
-  const apiKey = process.env.GEMINI_API_KEY;
+let requestCounter = 0;
 
-  if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY' || apiKey.trim() === '') {
+export async function mapBatchWithGemini(rows: RawRow[]): Promise<any[]> {
+  const keysStr = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
+  const apiKeys = keysStr
+    .split(',')
+    .map(k => k.trim())
+    .filter(k => k && k !== 'YOUR_GEMINI_API_KEY');
+
+  if (apiKeys.length === 0) {
     return heuristicMapRows(rows);
   }
 
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: SYSTEM_INSTRUCTION,
-    });
+  const startIndex = requestCounter % apiKeys.length;
+  requestCounter++;
 
-    const prompt = `Please map the following records into the target CRM schema.
+  let lastError: any = null;
+
+  for (let i = 0; i < apiKeys.length; i++) {
+    const activeIndex = (startIndex + i) % apiKeys.length;
+    const apiKey = apiKeys[activeIndex];
+
+    try {
+      console.log(`[Gemini Service] Attempting request using key index ${activeIndex + 1}/${apiKeys.length}...`);
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.0-flash',
+        systemInstruction: SYSTEM_INSTRUCTION,
+      });
+
+      const prompt = `Please map the following records into the target CRM schema.
 Here are few-shot examples:
 ${FEW_SHOT_EXAMPLES}
 
@@ -329,32 +345,33 @@ ${JSON.stringify(rows, null, 2)}
 
 Return the mapped output strictly as a JSON array. No markdown, no code fences, just raw JSON.`;
 
-    const response = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json' },
-    });
+      const response = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json' },
+      });
 
-    const text = response.response.text();
-    if (!text) throw new Error('Empty response from Gemini API');
+      const text = response.response.text();
+      if (!text) throw new Error('Empty response from Gemini API');
 
-    let parsed = JSON.parse(text.trim());
+      let parsed = JSON.parse(text.trim());
 
-    // Unwrap if Gemini wrapped output in an object key
-    if (!Array.isArray(parsed) && parsed && typeof parsed === 'object') {
-      const innerKey = Object.keys(parsed).find(k => Array.isArray(parsed[k]));
-      parsed = innerKey ? parsed[innerKey] : [parsed];
+      if (!Array.isArray(parsed) && parsed && typeof parsed === 'object') {
+        const innerKey = Object.keys(parsed).find(k => Array.isArray(parsed[k]));
+        parsed = innerKey ? parsed[innerKey] : [parsed];
+      }
+
+      if (!Array.isArray(parsed)) throw new Error('Gemini output is not a JSON array');
+
+      return (parsed as any[]).map((geminiRow, idx) =>
+        normalizeGeminiRow(geminiRow, rows[idx] ?? {})
+      );
+
+    } catch (error: any) {
+      lastError = error;
+      console.warn(`[Gemini Service] Key index ${activeIndex + 1} failed: ${error.message || error}. Trying next key...`);
     }
-
-    if (!Array.isArray(parsed)) throw new Error('Gemini output is not a JSON array');
-
-    // Post-process: normalize field aliases + fill gaps from original rows
-    return (parsed as any[]).map((geminiRow, idx) =>
-      normalizeGeminiRow(geminiRow, rows[idx] ?? {})
-    );
-
-  } catch (error: any) {
-    console.error('[Gemini Service Error]', error.message || error);
-    // Graceful fallback so users always get results
-    return heuristicMapRows(rows);
   }
+
+  console.error('[Gemini Service Error] All keys in the pool failed.', lastError?.message || lastError);
+  return heuristicMapRows(rows);
 }

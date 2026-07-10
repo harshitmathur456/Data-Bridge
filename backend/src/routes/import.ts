@@ -25,7 +25,12 @@ router.post('/', async (req: Request<{}, {}, ImportRequest>, res: Response) => {
       return res.status(400).json({ error: 'Invalid request: "rows" must be an array.' });
     }
 
-    const isMock = !process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY';
+    const keysStr = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
+    const apiKeys = keysStr
+      .split(',')
+      .map(k => k.trim())
+      .filter(k => k && k !== 'YOUR_GEMINI_API_KEY');
+    const isMock = apiKeys.length === 0;
     res.setHeader('X-Mock-AI', isMock ? 'true' : 'false');
 
     if (rows.length === 0 && !isFinalBatch) {
