@@ -53,10 +53,10 @@ function extractEmails(text: string): string[] {
 
 // Regex to extract possible phone numbers from a string
 function extractPhoneNumbers(text: string): string[] {
-  // Matches sequences of digits, optionally prefixed with +, allowing spaces and dashes
-  const phoneRegex = /\+?[0-9\s\-]{7,25}/g;
+  // Matches sequences of digits, optionally prefixed with +, allowing spaces, dashes, and parentheses
+  const phoneRegex = /\+?[0-9\s\-()]{7,30}/g;
   const matches = text.match(phoneRegex) || [];
-  return matches.map(p => p.replace(/[\s\-]/g, '')).filter(p => p.length >= 7);
+  return matches.map(p => p.replace(/[\s\-()]/g, '')).filter(p => p.length >= 7);
 }
 
 export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null; skipped: boolean; reason?: string } {
