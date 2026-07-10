@@ -25,12 +25,12 @@ router.post('/', async (req: Request<{}, {}, ImportRequest>, res: Response) => {
       return res.status(400).json({ error: 'Invalid request: "rows" must be an array.' });
     }
 
+    const isMock = !process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY';
+    res.setHeader('X-Mock-AI', isMock ? 'true' : 'false');
+
     if (rows.length === 0 && !isFinalBatch) {
       return res.status(200).json({ imported: [], skipped: [], total_imported: 0, total_skipped: 0 });
     }
-
-    const isMock = !process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY';
-    res.setHeader('X-Mock-AI', isMock ? 'true' : 'false');
 
     // Map this batch via Gemini (or heuristic fallback) with up to 2 retries (3 attempts total)
     let mappedRows: any[] = [];
