@@ -95,3 +95,24 @@ export async function saveImportToSupabase(params: {
     return { sessionId: null, error: err.message || String(err) };
   }
 }
+
+export async function saveUserLogin(name: string, captchaInput: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = getClient();
+    const { error } = await supabase
+      .from('user_logins')
+      .insert({
+        name,
+        captcha_input: captchaInput
+      } as any);
+
+    if (error) {
+      console.error('[Supabase] Login save error:', error.message);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Supabase] Login unexpected error:', err);
+    return { success: false, error: err.message || String(err) };
+  }
+}

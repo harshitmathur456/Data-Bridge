@@ -51,3 +51,14 @@ alter table skipped_rows enable row level security;
 create policy "Allow all import_sessions" on import_sessions for all using (true) with check (true);
 create policy "Allow all crm_records" on crm_records for all using (true) with check (true);
 create policy "Allow all skipped_rows" on skipped_rows for all using (true) with check (true);
+
+-- 4. User Logins: stores logins with Name and Captcha entries
+create table if not exists user_logins (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  captcha_input text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table user_logins enable row level security;
+create policy "Allow all user_logins" on user_logins for all using (true) with check (true);

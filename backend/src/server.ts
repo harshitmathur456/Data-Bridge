@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import importRouter from './routes/import';
+import loginRouter from './routes/login';
 
 dotenv.config();
 
@@ -11,13 +12,15 @@ const PORT = process.env.PORT || 3001;
 app.use(cors({
   origin: '*', // Allow requests from all origins (frontend is Next.js)
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['X-Mock-AI']
 }));
 
 app.use(express.json({ limit: '10mb' }));
 
 // Routes
 app.use('/api/import', importRouter);
+app.use('/api/login', loginRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
