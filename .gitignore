@@ -1,0 +1,14 @@
+node_modules/
+.next/
+dist/
+build/
+.env
+.env.local
+.DS_Store
+*.local
+npm-debug.log*
+
+# Exclude assignment/brief files — not part of the project code
+Software Developer (Intern _ Full-Time) Assignment.pdf
+databridge_ai_uiux_brief.md
+groweasy_csv_importer_prd.md

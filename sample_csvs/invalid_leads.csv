@@ -1,0 +1,6 @@
+created_at,name,email,mobile_without_country_code,company,crm_note
+2026-07-01 10:00:00,Valid Lead,valid@example.com,9876543210,ACME Corp,Has both contact info
+2026-07-02 11:00:00,Invalid Lead 1,,,No Contact,This record should be skipped
+2026-07-03 12:00:00,Email Only Lead,email.only@example.com,,Only Email Corp,Should be imported
+2026-07-04 13:00:00,Mobile Only Lead,,9876543211,Only Mobile Inc,Should be imported
+2026-07-05 14:00:00,Invalid Lead 2,,,No Contact,This record should also be skipped
