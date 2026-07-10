@@ -100,9 +100,14 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
   return rows.map(row => {
     const result: any = {};
     const keys = Object.keys(row);
+    const mappedKeys = new Set<string>();
 
     // Helper: find first key matching regex that also has a non-empty value
-    const findKey = (re: RegExp) => keys.find(k => re.test(k) && row[k]?.trim());
+    const findKey = (re: RegExp) => {
+      const found = keys.find(k => re.test(k) && row[k]?.trim());
+      if (found) mappedKeys.add(found);
+      return found;
+    };
 
     // ── Name ──
     const firstKey = findKey(/\bfirst.?name\b/i);
@@ -125,7 +130,10 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
              !name.includes('agent') && !name.includes('admin') && 
              !name.includes('secondary') && !name.includes('alt');
     });
-    if (primaryEmailKey) result.email = row[primaryEmailKey];
+    if (primaryEmailKey) {
+      result.email = row[primaryEmailKey];
+      mappedKeys.add(primaryEmailKey);
+    }
 
     const altEmailKey = findKey(/\balt.?email\b|\bsecondary.?email\b|\bother.?email\b/i);
     if (altEmailKey && row[altEmailKey]?.trim() && row[altEmailKey] !== row[primaryEmailKey ?? '']) {
@@ -146,6 +154,7 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
         const v = String(row[k] || '').trim();
         if (v && phoneValRe.test(v) && !v.includes('@') && !datePattern.test(v)) {
           result.mobile_without_country_code = v;
+          mappedKeys.add(k);
           break;
         }
       }
@@ -173,7 +182,7 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
 
     // ── Lead Owner / Assigned To ──
     const ownerKey = findKey(/\blead.?owner\b|\bassigned.?to\b|\bowner\b/i);
-    if (ownerKey) result.lead_owner = row[ownerKey];
+    if (ownerKey) result.lead_owner = ownerKey;
 
     // ── Status inference — Stage column + Notes/Comments ──
     const statusKey = findKey(/\bstatus\b|\bstage\b|\bdisposition\b/i);
@@ -202,15 +211,40 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
       else if (sv.includes('eden')    || sv.includes('park'))  result.data_source = 'eden_park';
       else if (sv.includes('varah')   || sv.includes('swamy')) result.data_source = 'varah_swamy';
       else if (sv.includes('sarjapur')|| sv.includes('plot'))  result.data_source = 'sarjapur_plots';
+      mappedKeys.add(sourceKey);
     }
 
     // ── Note / Description ──
     if (noteKey) result.crm_note = row[noteKey];
     const descKey = keys.find(k => /\bdesc\b|\bdescription\b/i.test(k));
-    if (descKey) result.description = row[descKey];
+    if (descKey) {
+      result.description = row[descKey];
+      mappedKeys.add(descKey);
+    }
 
     const possKey = keys.find(k => /\bpossession\b/i.test(k));
-    if (possKey) result.possession_time = row[possKey];
+    if (possKey) {
+      result.possession_time = row[possKey];
+      mappedKeys.add(possKey);
+    }
+
+    // ── Collect Unmapped Columns ──
+    const unmappedNotes: string[] = [];
+    for (const key of keys) {
+      if (!mappedKeys.has(key)) {
+        const val = String(row[key] || '').trim();
+        if (val) {
+          unmappedNotes.push(`${key}: ${val}`);
+        }
+      }
+    }
+
+    if (unmappedNotes.length > 0) {
+      const extraNotes = unmappedNotes.join(' | ');
+      result.crm_note = result.crm_note
+        ? `${result.crm_note} | ${extraNotes}`
+        : extraNotes;
+    }
 
     return result;
   });
@@ -244,7 +278,8 @@ RULES:
 7. data_source — map to ONE of: leads_on_demand, meridian_tower, eden_park, varah_swamy, sarjapur_plots. Leave blank if no confident match.
 8. Multiple emails/phones in one field: use the first as the primary value, append all additional ones into crm_note prefixed clearly (e.g. "Alt phone: 9876500000").
 9. SKIP a record ONLY if it has NEITHER a valid email NOR a valid phone number after extraction. If at least one of these two is present, the record MUST be imported — never skip it for any other reason.
-10. Return strict JSON array only. No markdown, no commentary, no code fences.`;
+10. Return strict JSON array only. No markdown, no commentary, no code fences.
+11. crm_note: Append any additional columns/values from the input record that do not fit into the other standard CRM schema fields (e.g. custom columns like "budget", "requirements", "age", etc.) into the crm_note field in the format "Key: Value". If there are multiple, separate them with a pipe " | ".`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Few-shot examples — covers phone-only, ambiguous city header, status inference

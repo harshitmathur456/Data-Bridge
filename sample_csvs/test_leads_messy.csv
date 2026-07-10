@@ -1,0 +1,9 @@
+Lead Date,Full Name,Contact Email,Alt Email,Ph No,Whatsapp No,Org,Town,Area,Nation,Assigned To,Stage,Comments,Campaign,Ready By
+13-05-2026,John Doe,john.doe@example.com,john.alt@gmail.com,9876543210,,GrowEasy,Mumbai,Maharashtra,India,test@gmail.com,Interested - will call back,Client is asking to reschedule demo,leads_on_demand,
+05/13/2026,Sarah Johnson,sarah.johnson@example.com,,9876543211 / 9123456780,,Tech Solutions,Bangalore,Karnataka,India,test@gmail.com,No response yet,"Person was busy, will try again next week",meridian_tower,
+2026-05-14,Rajesh Patel,,,9876543212,,Startup Inc,Delhi,Delhi,India,test@gmail.com,Not interested,Not interested in our services,,
+14 May 2026,Priya Singh,priya.singh@example.com,,,9876543213,Enterprise Corp,Pune,Maharashtra,India,test@gmail.com,Deal Closed,"Deal closed, onboarding in progress",eden_park,Dec 2026
+2026/05/15,Amit Sharma,,,,,Realty Co,Jaipur,Rajasthan,India,test@gmail.com,No contact info,This row should be skipped - no email or phone,,
+15-05-26,Neha Gupta,neha.g@test.co,,+91 9988776655,,,Ahmedabad,Gujarat,India,,Hot lead,Very interested, wants site visit next week,varah_swamy,Jan 2027
+16 May,Vikram Rao,vikram@company.io,vikram.rao@gmail.com,9090909090,9090909091,Rao Industries,Chennai,Tamil Nadu,India,test@gmail.com,follow up,Multiple numbers - primary and office,sarjapur_plots,
+2026-05-17T10:30:00,Anjali Mehta,anjali.mehta@corp.com,,98765XXXXX,,Mehta Group,Kolkata,West Bengal,India,test@gmail.com,invalid phone test,Phone number is intentionally malformed,,

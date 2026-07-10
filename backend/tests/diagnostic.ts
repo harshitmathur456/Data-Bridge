@@ -51,6 +51,7 @@ mapped.forEach((m, i) => {
   console.log(`  city:    "${m.city ?? '(undefined)'}"`);
   console.log(`  state:   "${m.state ?? '(undefined)'}"`);
   console.log(`  crm_status: "${m.crm_status ?? '(undefined)'}"`);
+  console.log(`  crm_note:   "${m.crm_note ?? '(undefined)'}"`);
 });
 
 console.log('\n── AFTER VALIDATION ──');
@@ -63,5 +64,6 @@ mapped.forEach((m, i) => {
     console.log(`  email:   "${record.email ?? ''}"`);
     console.log(`  city:    "${record.city ?? ''}"`);
     console.log(`  crm_status: "${record.crm_status ?? ''}"`);
+    console.log(`  crm_note:   "${record.crm_note ?? ''}"`);
   }
 });

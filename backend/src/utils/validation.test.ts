@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sanitizeAndValidateRecord } from './validation';
+import { heuristicMapRows } from '../services/geminiService';
 
 describe('sanitizeAndValidateRecord', () => {
   // 1. Skip logic: record with no email AND no phone → should be marked as skipped.
@@ -266,3 +267,49 @@ describe('sanitizeAndValidateRecord', () => {
     });
   });
 });
+
+describe('heuristicMapRows', () => {
+  it('should map standard fields correctly and collect unmapped fields into crm_note', () => {
+    const input = [
+      {
+        fullname: 'John Doe',
+        email: 'john@example.com',
+        phone: '9876543210',
+        budget: '5000000',
+        age: '35',
+        requirements: '3BHK Flat',
+      }
+    ];
+
+    const results = heuristicMapRows(input);
+    expect(results).toHaveLength(1);
+
+    const mapped = results[0];
+    expect(mapped.name).toBe('John Doe');
+    expect(mapped.email).toBe('john@example.com');
+    expect(mapped.mobile_without_country_code).toBe('9876543210');
+    expect(mapped.crm_note).toContain('budget: 5000000');
+    expect(mapped.crm_note).toContain('age: 35');
+    expect(mapped.crm_note).toContain('requirements: 3BHK Flat');
+  });
+
+  it('should handle rows with no unmapped fields gracefully', () => {
+    const input = [
+      {
+        fullname: 'Jane Doe',
+        email: 'jane@example.com',
+        phone: '8765432109',
+      }
+    ];
+
+    const results = heuristicMapRows(input);
+    expect(results).toHaveLength(1);
+
+    const mapped = results[0];
+    expect(mapped.name).toBe('Jane Doe');
+    expect(mapped.email).toBe('jane@example.com');
+    expect(mapped.mobile_without_country_code).toBe('8765432109');
+    expect(mapped.crm_note).toBeUndefined();
+  });
+});
+

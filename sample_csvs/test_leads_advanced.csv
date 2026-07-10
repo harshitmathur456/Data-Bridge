@@ -1,0 +1,14 @@
+created,Lead Name,Email ID,Backup Email,Contact No,Ext,Business,Town,Province,Nation,Sales Rep,Funnel Stage,Comments,Channel,Move-in By
+19-05-2026,"=HYPERLINK(""http://evil.com"",""Click"")",formula.test@example.com,,9876500010,,Formula Test Co,Nagpur,Maharashtra,India,test@gmail.com,,CSV injection test - formula in name field,leads_on_demand,
+20-05-2026,N/A,N/A,,N/A,,N/A,N/A,,N/A,test@gmail.com,,All fields are literal 'N/A' placeholder text,,
+21-05-2026,   Spaced Name   ,   SPACED.EMAIL@EXAMPLE.COM   ,,  9876500011  ,,  Spaced Co  ,  Nashik  ,Maharashtra,India,test@gmail.com,,Leading/trailing whitespace everywhere including email,,
+22-05-2026,Extension Test,ext.test@example.com,,9876500012 ext 204,204,Extension Corp,Vadodara,Gujarat,India,test@gmail.com,,Phone has extension number appended,,
+23-05-2026,Zero Lead Person,zero.lead@example.com,,09876500013,,Zero Co,Bhubaneswar,Odisha,India,test@gmail.com,,Phone has leading zero like a landline STD code,,
+24-05-2026,Emoji Person 🎉,emoji.person@example.com,,9876500014,,Party Co 🎊,Chandigarh,Punjab,India,test@gmail.com,good lead 🔥🔥🔥,"Client is SUPER excited 😍 wants to close ASAP!!",,
+25-05-2026,Currency Client,currency.client@example.com,,9876500015,,₹Money Corp,Lucknow,Uttar Pradesh,India,test@gmail.com,,"Budget mentioned: ₹5,00,000 - client confirmed",,Q2 2027
+26-05-2026,MiXeD CaSe StAtUs,mixed.case@example.com,,9876500016,,MixedCase Inc,Guwahati,Assam,India,test@gmail.com,sale done,Status written in lowercase should still map correctly,,
+27-05-2026,Extra Columns Row,extra.cols@example.com,,9876500017,,Extra Co,Ranchi,Jharkhand,India,test@gmail.com,,"This row has more commas than header",leads_on_demand,Q3 2027,UNEXPECTED_EXTRA_VALUE
+28-05-2026,Short Row Person,short.row@example.com
+29-05-2026,A,a@example.com,,9876500018,,B,C,D,India,test@gmail.com,,Single character name company city test,,
+30-05-2026,Duplicate Person,dup.person@example.com,,9876500019,,Dup Co,Mysore,Karnataka,India,test@gmail.com,BAD_LEAD,First occurrence of this exact email,,
+30-05-2026,Duplicate Person Again,dup.person@example.com,,9876500019,,Dup Co,Mysore,Karnataka,India,test@gmail.com,GOOD_LEAD_FOLLOW_UP,Exact same email and phone as previous row - duplicate test,,

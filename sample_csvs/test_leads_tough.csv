@@ -1,0 +1,16 @@
+Date Recorded,Full Name,Primary Email,Secondary Contact,Phone/WhatsApp,Firm,Location,Region,Nation,Owner Email,Current Stage,Notes/Remarks,Lead Channel,Ready Date
+Ambiguous date test,,,,,,,,,,,,,
+01/02/2026,Aarav Shah,aarav.shah@example.com,,9876500001,Shah Realty,Surat,Gujarat,India,test@gmail.com,,"Deal is DONE, client signed. Actually wait, he said he'll call back to confirm. Not sure now.",leads_on_demand,
+Quoted multiline test,,,,,,,,,,,,,
+"13-05-2026",Ibrahim Al-Sayed,ibrahim.sayed@example.com,ibrahim2@example.com; ibrahim3@example.com,+91 99887 66655 / 9988766656,"Al-Sayed & Sons, LLC",Hyderabad,Telangana,India,test@gmail.com,BAD_LEAD,"Client said:
+""not interested, please remove from list""
+Also mentioned budget is zero.",eden_park,
+Empty row test,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+Duplicate-looking record,,,,,,,,,,,,,
+14-05-2026,José García,jose.garcia@example.com,,9876500002,García Corp,Chennai,Tamil Nadu,India,test@gmail.com,good lead - FOLLOW UP ASAP!!!,VERY INTERESTED CLIENT WANTS DEMO TOMORROW MORNING CALL AT 9AM SHARP DO NOT MISS,sarjapur_plots,Q1 2027
+15-05-2026,吴娜 (Wu Na),wu.na@example.com,,9876500003,Wu Trading Co,Kolkata,West Bengal,India,test@gmail.com,,"<b>Important</b>: client wants brochure emailed, see attached (link removed)",varah_swamy,
+16-05-2026,No Contact Person,,,,Ghost Company,Nowhere,,,test@gmail.com,DID_NOT_CONNECT,This row has literally no email or phone and should be skipped,leads_on_demand,
+2026-13-45,Broken Date Person,broken.date@example.com,,9876500004,Broken Co,Patna,Bihar,India,test@gmail.com,,Invalid date format on purpose - month 13 day 45,,
+17-05-2026,Fee Waiver Test,fee.waiver@example.com,,123,Tiny Numbers Inc,Bhopal,Madhya Pradesh,India,test@gmail.com,,"Phone number is only 3 digits, clearly invalid/placeholder",meridian_tower,
+18-05-2026,,missing.name@example.com,,9876500005,No Name Co,Indore,Madhya Pradesh,India,test@gmail.com,GOOD_LEAD_FOLLOW_UP,Name column is blank but contact info exists,,
