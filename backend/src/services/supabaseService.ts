@@ -51,7 +51,7 @@ export async function saveImportToSupabase(params: {
         total_imported: imported.length,
         total_skipped: skipped.length,
         ai_engine: aiEngine,
-      })
+      } as any)
       .select('id')
       .single();
 
@@ -60,7 +60,7 @@ export async function saveImportToSupabase(params: {
       return { sessionId: null, error: sessionError?.message };
     }
 
-    const sessionId: string = session.id;
+    const sessionId: string = (session as any).id;
 
     // 2. Bulk insert CRM records (batch in chunks of 100 to stay under limits)
     if (imported.length > 0) {
@@ -68,7 +68,7 @@ export async function saveImportToSupabase(params: {
       const chunkSize = 100;
       for (let i = 0; i < crmRows.length; i += chunkSize) {
         const chunk = crmRows.slice(i, i + chunkSize);
-        const { error: insertError } = await supabase.from('crm_records').insert(chunk);
+        const { error: insertError } = await supabase.from('crm_records').insert(chunk as any);
         if (insertError) {
           console.error('[Supabase] CRM records insert error:', insertError.message);
         }
@@ -82,7 +82,7 @@ export async function saveImportToSupabase(params: {
         raw_row: s.row,
         reason: s.reason,
       }));
-      const { error: skipError } = await supabase.from('skipped_rows').insert(skippedRows);
+      const { error: skipError } = await supabase.from('skipped_rows').insert(skippedRows as any);
       if (skipError) {
         console.error('[Supabase] Skipped rows insert error:', skipError.message);
       }
