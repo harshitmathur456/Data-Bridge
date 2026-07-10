@@ -181,6 +181,36 @@ Three sample files are in `sample_csvs/`:
 
 ---
 
+## 🐳 Docker Setup
+
+This project can be run inside Docker containers using Docker Compose. A multi-stage build is configured to optimize image size.
+
+### Prerequisites
+- Docker and Docker Compose installed on your host system.
+
+### Running with Docker Compose
+1. Ensure your backend environment variables are configured in `backend/.env` (refer to `backend/.env.example`).
+2. Run the following command from the project root:
+   ```bash
+   docker-compose up --build
+   ```
+3. This will build both the frontend and backend images and run them:
+   - **Frontend** → `http://localhost:3000`
+   - **Backend** → `http://localhost:3001`
+
+### Running Standalone Frontend Container
+If you wish to build and run only the Next.js frontend container:
+1. Build the image:
+   ```bash
+   docker build -t databridge-ai .
+   ```
+2. Run the container:
+   ```bash
+   docker run -p 3000:3000 databridge-ai
+   ```
+
+---
+
 ## 📦 Deployment
 
 - **Frontend** → Vercel (`npm run build` in `/frontend`)
