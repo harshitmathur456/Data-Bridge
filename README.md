@@ -4,14 +4,7 @@
 
 An intelligent, guided CSV import wizard that maps *any* CSV layout — regardless of column names or structure — into a fixed CRM schema using Google Gemini AI. Built with Next.js, Express, TypeScript, and Supabase.
 
----
 
-## 🚀 Live Demo
-
-**App:** [deploy link here after Vercel deployment]
-**GitHub:** [repo link here]
-
----
 
 ## ✨ Features
 
@@ -214,17 +207,3 @@ The AI extraction pipeline was validated against **7 sample CSVs** covering ever
 | `crm_records` | All successfully imported CRM records, linked to their session |
 | `skipped_rows` | Raw rows that failed validation, with the skip reason |
 | `user_logins` | Lightweight name + CAPTCHA entries for the app's access gate |
-
----
-
-## ✅ Bonus Points Implemented
-
-- [x] Drag & Drop upload
-- [x] Progress indicators during AI processing
-- [x] Retry mechanism for failed AI batches
-- [x] Dark mode
-- [x] Unit tests
-- [x] Docker setup
-- [x] Deployment (Vercel)
-- [x] Well-written README with setup instructions
-- [x] Extensive edge-case & security testing (7 sample CSVs, CSV-injection safety)
