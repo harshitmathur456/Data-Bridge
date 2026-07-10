@@ -120,6 +120,7 @@ function TopNav({ current, dark }: { current: Step; dark: boolean }) {
         );
       })}
     </div>
+  );
 }
 
 const getFlag = (cc: string) => {
