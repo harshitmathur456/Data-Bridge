@@ -53,10 +53,10 @@ function extractEmails(text: string): string[] {
 
 // Regex to extract possible phone numbers from a string
 function extractPhoneNumbers(text: string): string[] {
-  // Matches sequences of 7 to 15 digits, optionally prefixed with +
-  const phoneRegex = /\+?[0-9-]{7,15}/g;
+  // Matches sequences of digits, optionally prefixed with +, allowing spaces and dashes
+  const phoneRegex = /\+?[0-9\s\-]{7,25}/g;
   const matches = text.match(phoneRegex) || [];
-  return matches.map(p => p.replace(/[-]/g, '')).filter(p => p.length >= 7);
+  return matches.map(p => p.replace(/[\s\-]/g, '')).filter(p => p.length >= 7);
 }
 
 export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null; skipped: boolean; reason?: string } {
@@ -116,13 +116,28 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
   // "+919876543210" being mis-parsed as CC="+919" instead of CC="+91".
   let countryCode = String(raw.country_code || '').trim();
 
+  // Normalize "00" prefix to "+"
+  if (primaryMobile.startsWith('00')) {
+    primaryMobile = '+' + primaryMobile.slice(2);
+  }
+
   // Ensure countryCode always has a leading '+' if it consists of digits
   if (countryCode && /^\d+$/.test(countryCode)) {
     countryCode = '+' + countryCode;
   }
 
+  // If no explicit CC was parsed but we have a raw unformatted number, try to extract it
+  if (!countryCode && /^\d{10,13}$/.test(primaryMobile.replace(/\D/g, ''))) {
+    const digitsOnly = primaryMobile.replace(/\D/g, '');
+    if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) { countryCode = '+91'; primaryMobile = digitsOnly.slice(2); }
+    else if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) { countryCode = '+1'; primaryMobile = digitsOnly.slice(1); }
+    else if (digitsOnly.length === 12 && digitsOnly.startsWith('44')) { countryCode = '+44'; primaryMobile = digitsOnly.slice(2); }
+    else if (digitsOnly.length === 13 && digitsOnly.startsWith('86')) { countryCode = '+86'; primaryMobile = digitsOnly.slice(2); }
+    else if (digitsOnly.length === 10 && digitsOnly.startsWith('65')) { countryCode = '+65'; primaryMobile = digitsOnly.slice(2); }
+  }
+
   if (!countryCode) {
-    const rawTrimmed = mobileRaw.trim();
+    const rawTrimmed = primaryMobile.trim();
     if (rawTrimmed.startsWith('+')) {
       // Collect all valid CC candidates (1–3 digit codes)
       // then prefer the one whose remaining digits = 10 (most common mobile length).

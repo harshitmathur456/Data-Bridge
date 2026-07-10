@@ -217,7 +217,11 @@ created_at, name, email, country_code, mobile_without_country_code, company, cit
 
 RULES:
 1. Column names are NOT fixed. Infer meaning from header text AND cell content (e.g. a column named "Ph No", "Contact Number", "Whatsapp", "Mobile" etc. all map to mobile_without_country_code — a value that looks like a phone number, even under an unexpected header, must still be extracted).
-2. Extract phone numbers: strip spaces, dashes, parentheses. Keep only digits for mobile_without_country_code. If country code is present (e.g. +91), put it in country_code separately AND DO NOT include the country code digits in mobile_without_country_code.
+2. Extract phone numbers: strip spaces, dashes, parentheses. Keep only digits for mobile_without_country_code.
+   - If country code is present (e.g. +91), put it in country_code (with '+' prefix).
+   - If a number starts with '00' (e.g. 0091...), treat it as an internationally dialed number. Put the country code (e.g. +91) in country_code.
+   - If a number starts with known country code digits (e.g. 91, 1, 44, 86, 65) without a '+' but matches typical international lengths, split it! (e.g. "447911123456" -> country_code: "+44", mobile: "7911123456").
+   - CRITICAL: Whatever digits you assign to country_code MUST BE REMOVED from mobile_without_country_code. Do NOT duplicate them.
 3. Extract city/state/country similarly — match by header meaning first, then by value pattern (known Indian city/state names) if header is ambiguous.
 4. created_at: convert any date format (DD-MM-YYYY, MM/DD/YYYY, "14 May 2026", ISO, etc.) into "YYYY-MM-DD HH:mm:ss". Never leave a parseable date blank.
 5. crm_status — map to ONE of: GOOD_LEAD_FOLLOW_UP, DID_NOT_CONNECT, BAD_LEAD, SALE_DONE. Infer confidently from notes/comments/stage columns even if the exact enum word is not used:
