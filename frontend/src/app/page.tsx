@@ -120,8 +120,15 @@ function TopNav({ current, dark }: { current: Step; dark: boolean }) {
         );
       })}
     </div>
-  );
 }
+
+const getFlag = (cc: string) => {
+  if (cc === "+91") return "🇮🇳";
+  if (cc === "+1") return "🇺🇸";
+  if (cc === "+44") return "🇬🇧";
+  if (cc === "+61") return "🇦🇺";
+  return "🌐";
+};
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 export default function Home() {
@@ -641,7 +648,9 @@ export default function Home() {
                             <td className="px-5 py-3.5 text-[#00463f] font-mono text-xs font-semibold">CRM-{String((resultPage - 1) * PER_PAGE + i + 1).padStart(4, "0")}</td>
                             <td className="px-5 py-3.5 font-semibold text-base-color">{r.name || "—"}</td>
                             <td className="px-5 py-3.5 text-[#00463f]">{r.email || "—"}</td>
-                            <td className="px-5 py-3.5 text-[#00463f] font-mono text-xs">{r.country_code || "—"}</td>
+                            <td className="px-5 py-3.5 text-[#00463f] font-mono text-xs">
+                              {r.country_code ? <span className="inline-flex items-center gap-1.5"><span className="text-sm">{getFlag(r.country_code)}</span>{r.country_code}</span> : "—"}
+                            </td>
                             <td className="px-5 py-3.5 text-muted-color font-mono text-xs">{r.mobile_without_country_code || "—"}</td>
                             <td className="px-5 py-3.5 text-base-color">{r.company || "—"}</td>
                             <td className="px-5 py-3.5 text-base-color">{r.city || "—"}</td>

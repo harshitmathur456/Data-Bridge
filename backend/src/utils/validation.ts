@@ -175,6 +175,15 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
     primaryMobile = ''; // do not save a broken number to CRM
   }
 
+  // Infer country_code +91 if missing, but location indicates India
+  if (!countryCode && primaryMobile) {
+    const indianKeywords = ['india', 'mumbai', 'bangalore', 'bengaluru', 'delhi', 'pune', 'ahmedabad', 'chennai', 'kolkata', 'hyderabad', 'maharashtra', 'karnataka', 'gujarat', 'tamil nadu', 'west bengal', 'telangana', 'ncr', 'gurgaon', 'noida'];
+    const locationStr = `${raw.city || ''} ${raw.state || ''} ${raw.country || ''}`.toLowerCase();
+    if (indianKeywords.some(k => locationStr.includes(k))) {
+      countryCode = '+91';
+    }
+  }
+
   // 3. Skip check: ONLY skip when BOTH email AND phone are absent
   if (!primaryEmail && !primaryMobile) {
     return { record: null, skipped: true, reason: 'Missing both email and phone number' };
