@@ -190,7 +190,7 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
       result.crm_status = 'BAD_LEAD';
     } else if (/no\s*response|could\s*not\s*reach|not\s*reachable|busy|dnc|did\s*not\s*connect|no\s*contact/i.test(signalText)) {
       result.crm_status = 'DID_NOT_CONNECT';
-    } else if (/hot\s*lead|follow.?up|interested|will\s*call|call\s*back|site\s*visit/i.test(signalText)) {
+    } else if (/good\s*lead|hot\s*lead|follow.?up|interested|will\s*call|call\s*back|site\s*visit/i.test(signalText)) {
       result.crm_status = 'GOOD_LEAD_FOLLOW_UP';
     }
 
@@ -230,7 +230,7 @@ RULES:
    - CRITICAL: Reject date-like values (e.g. "01/02/2026", "16-05-2026", "14-05-2026", "2026-05-13") from being extracted as phone numbers.
    - If country code is present (e.g. +91), put it in country_code (with '+' prefix).
    - If a number starts with '00' (e.g. 0091...), treat it as an internationally dialed number. Put the country code (e.g. +91) in country_code.
-   - If a number starts with known country code digits (e.g. 91, 1, 44, 86, 65) without a '+' but matches typical international lengths, split it! (e.g. "447911123456" -> country_code: "+44", mobile: "7911123456").
+   - If a number starts with known country code digits (e.g. 91, 1, 86, 44, 65 etc.) without a '+' but matches typical international lengths, split it! (e.g. "447911123456" -> country_code: "+44", mobile: "7911123456").
    - CRITICAL: Whatever digits you assign to country_code MUST BE REMOVED from mobile_without_country_code. Do NOT duplicate them.
 3. Map company/organization names to company (e.g. columns like "Firm", "Company", "Co", "Corp", "Organization", "Business", "Brand" all map to company).
 4. Extract city/state/country similarly — match by header meaning first, then by value pattern (known Indian city/state names) if header is ambiguous.
@@ -238,7 +238,7 @@ RULES:
 6. crm_status — map to ONE of: GOOD_LEAD_FOLLOW_UP, DID_NOT_CONNECT, BAD_LEAD, SALE_DONE. Infer confidently from notes/comments/stage columns even if the exact enum word is not used:
    - "deal closed", "onboarding started", "payment done", "booking confirmed" → SALE_DONE
    - "not interested", "no longer interested", "junk" → BAD_LEAD
-   - "will call back", "interested", "hot lead", "follow up" → GOOD_LEAD_FOLLOW_UP
+   - "good lead", "will call back", "interested", "hot lead", "follow up" → GOOD_LEAD_FOLLOW_UP
    - "no response", "could not reach", "busy", "DNC" → DID_NOT_CONNECT
    - Only leave blank if there is truly NO signal at all.
 7. data_source — map to ONE of: leads_on_demand, meridian_tower, eden_park, varah_swamy, sarjapur_plots. Leave blank if no confident match.
