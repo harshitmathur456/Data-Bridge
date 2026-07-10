@@ -101,30 +101,42 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
     const result: any = {};
     const keys = Object.keys(row);
 
+    // Helper: find first key matching regex that also has a non-empty value
+    const findKey = (re: RegExp) => keys.find(k => re.test(k) && row[k]?.trim());
+
     // ── Name ──
-    const nameKey = keys.find(k => /\bname\b|full.?name|lead.?name|customer.?name/i.test(k));
-    if (nameKey) result.name = row[nameKey];
-    // Handle split first+last
-    const firstKey = keys.find(k => /\bfirst.?name\b/i.test(k));
-    const lastKey  = keys.find(k => /\blast.?name\b/i.test(k));
-    if (!result.name && firstKey) result.name = [row[firstKey], lastKey ? row[lastKey] : ''].filter(Boolean).join(' ').trim();
+    const firstKey = findKey(/\bfirst.?name\b/i);
+    const lastKey  = findKey(/\blast.?name\b/i);
+    const fullKey  = findKey(/\bfull.?name\b|\bname\b|\blead.?name\b|\bcustomer.?name\b|\bcontact.?person\b/i);
+    if (firstKey) {
+      result.name = [row[firstKey], lastKey ? row[lastKey] : ''].filter(Boolean).join(' ').trim();
+    } else if (fullKey) {
+      result.name = row[fullKey];
+    }
 
-    // ── Email ──
-    const emailKey = keys.find(k => /\bemail\b|\bmail\b|e-?mail/i.test(k));
-    if (emailKey) result.email = row[emailKey];
+    // ── Email — primary & alt ──
+    // IMPORTANT: 'contact' alone is NOT used for phone — /email|mail/ safely
+    // matches 'Contact Email', 'Alt Email' etc. without polluting phone.
+    const primaryEmailKey = findKey(/\bcontact.?email\b|\bemail\b|\bmail\b|e-?mail/i);
+    if (primaryEmailKey) result.email = row[primaryEmailKey];
 
-    // ── Phone — wide net ──
-    const phoneKey = keys.find(k =>
-      /\bphone\b|\bmobile\b|\bcontact\b|\bph\b|\bnum\b|\bwhatsapp\b|\btelephone\b|\bcell\b|\bph.?no\b/i.test(k)
-    );
+    const altEmailKey = findKey(/\balt.?email\b|\bsecondary.?email\b|\bother.?email\b/i);
+    if (altEmailKey && row[altEmailKey]?.trim() && row[altEmailKey] !== row[primaryEmailKey ?? '']) {
+      result._altEmail = row[altEmailKey]; // carry through to crm_note below
+    }
+
+    // ── Phone — NEVER matches 'Contact Email' or 'Alt Email' ──
+    // Regex deliberately avoids bare '\bcontact\b' — only matches contact+number/no/ph
+    const phoneRe = /\bph.?no\b|\bphone.?no\b|\bphone\b|\bmobile\b|\bwhatsapp\b|\btelephone\b|\bcell\b|\bcontact.?(?:num|no|ph)\b|\bph\b/i;
+    const phoneKey = findKey(phoneRe);
     if (phoneKey) {
       result.mobile_without_country_code = row[phoneKey];
     } else {
-      // Value-based fallback: scan for phone-like values
-      const phonePattern = /^[\+\s\-()0-9]{7,15}$/;
+      // Value-based fallback: scan for a field whose value looks like a phone
+      const phoneValRe = /^[\+\s\-()0-9]{7,15}$/;
       for (const k of keys) {
         const v = String(row[k] || '').trim();
-        if (v && phonePattern.test(v) && !/\d{4}-\d{2}-\d{2}/.test(v) && !result.email?.includes(v)) {
+        if (v && phoneValRe.test(v) && !v.includes('@') && !/\d{4}-\d{2}-\d{2}/.test(v)) {
           result.mobile_without_country_code = v;
           break;
         }
@@ -132,44 +144,48 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
     }
 
     // ── Date ──
-    const dateKey = keys.find(k => /\bdate\b|\btime\b|\bcreated\b|created_?at/i.test(k));
+    const dateKey = findKey(/\bdate\b|\blead.?date\b|\bentry.?date\b|\bcreated.?at\b|\btime\b/i);
     if (dateKey) result.created_at = row[dateKey];
 
-    // ── Company ──
-    const companyKey = keys.find(k => /\bcompany\b|\borg\b|\bbusiness\b|\bbiz\b/i.test(k));
+    // ── Company / Org ──
+    const companyKey = findKey(/\bcompany\b|\borg\b|\borganis?ation\b|\bbusiness\b|\bbiz\b/i);
     if (companyKey) result.company = row[companyKey];
 
-    // ── City — wide net (includes location_city, loc_city, area, etc.) ──
-    const cityKey = keys.find(k => /\bcity\b|\btown\b|\barea\b|\bloc\b|location/i.test(k));
+    // ── City — Town > City > Location ──
+    const cityKey = findKey(/\btown\b|\bcity\b|location_city|loc_city|\bloc\b|location(?!_state)/i);
     if (cityKey) result.city = row[cityKey];
 
-    // ── State ──
-    const stateKey = keys.find(k => /\bstate\b|\bprovince\b|\bregion\b/i.test(k));
-    if (stateKey) result.state = row[stateKey];
+    // ── State — Area (Indian CSVs often use Area for state), State, Province ──
+    const stateKey = findKey(/\bstate\b|\bprovince\b|\bregion\b|\barea\b/i);
+    if (stateKey && stateKey !== cityKey) result.state = row[stateKey];
 
-    // ── Country ──
-    const countryKey = keys.find(k => /\bcountry\b/i.test(k));
+    // ── Country — Country, Nation ──
+    const countryKey = findKey(/\bcountry\b|\bnation\b/i);
     if (countryKey) result.country = row[countryKey];
 
-    // ── Status — infer from value text (status/stage column + note/remark/comment column) ──
-    const statusKey = keys.find(k => /\bstatus\b|\bstage\b|\bdisposition\b/i.test(k));
-    const noteKey   = keys.find(k => /\bnote\b|\bnotes\b|\bremark\b|\bremarks\b|\bcomment\b|\bcomments\b/i.test(k));
+    // ── Lead Owner / Assigned To ──
+    const ownerKey = findKey(/\blead.?owner\b|\bassigned.?to\b|\bowner\b/i);
+    if (ownerKey) result.lead_owner = row[ownerKey];
+
+    // ── Status inference — Stage column + Notes/Comments ──
+    const statusKey = findKey(/\bstatus\b|\bstage\b|\bdisposition\b/i);
+    const noteKey   = findKey(/\bnotes?\b|\bremarks?\b|\bcomments?\b/i);
+
     const signalText = [
       statusKey ? row[statusKey] : '',
       noteKey   ? row[noteKey]   : '',
     ].join(' ').toLowerCase();
 
-    if (/deal\s*clos|onboard|payment\s*done|booking\s*done|sale\s*done|won/i.test(signalText)) {
+    if (/deal\s*clos|onboard|payment\s*done|booking\s*(?:done|confirm)|sale\s*done|won/i.test(signalText)) {
       result.crm_status = 'SALE_DONE';
     } else if (/not\s*interest|no\s*longer\s*interest|junk|bad\s*lead/i.test(signalText)) {
       result.crm_status = 'BAD_LEAD';
-    } else if (/no\s*response|could\s*not\s*reach|not\s*reachable|busy|dnc/i.test(signalText)) {
+    } else if (/no\s*response|could\s*not\s*reach|not\s*reachable|busy|dnc|did\s*not\s*connect|no\s*contact/i.test(signalText)) {
       result.crm_status = 'DID_NOT_CONNECT';
-    } else if (/good|follow.?up|interested|hot\s*lead|will\s*call|call\s*back/i.test(signalText)) {
+    } else if (/hot\s*lead|follow.?up|interested|will\s*call|call\s*back|site\s*visit/i.test(signalText)) {
       result.crm_status = 'GOOD_LEAD_FOLLOW_UP';
     }
 
-    // ── Source ──
     const sourceKey = keys.find(k => /\bsource\b/i.test(k));
     if (sourceKey) {
       const sv = String(row[sourceKey]).toLowerCase();

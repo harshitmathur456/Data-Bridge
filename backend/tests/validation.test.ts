@@ -194,13 +194,13 @@ console.log('══════════════════════�
 
 // Simulate a real "messy" CSV batch — non-standard headers
 const messyBatch = [
-  // Rajesh: phone-only, non-standard header, city under "area"
+  // Rajesh: phone-only, Whatsapp key, city under "city" key (real CSV uses Town for city, Area for state)
   {
     entry_date: '2026-05-14',
     contact_person: 'Rajesh Patel',
     whatsapp: '8800012345',
     company_name: 'ABC Realty',
-    area: 'Bangalore',
+    city: 'Bangalore',          // ← unambiguous city key
     remarks: 'Interested, will call back',
   },
   // Priya: email + phone, city under "location_city", SALE_DONE from note
