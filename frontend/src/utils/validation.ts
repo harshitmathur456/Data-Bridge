@@ -80,6 +80,13 @@ function sanitizeFormulaInjection(val: string): string {
   return val;
 }
 
+// Replace actual newline characters (\r\n, \r, \n) with literal "\n" text
+// so multiline values don't break CSV row boundaries on export.
+export function sanitizeNewlines(val: string): string {
+  if (!val) return val;
+  return val.replace(/\r\n|\r|\n/g, '\\n');
+}
+
 export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null; skipped: boolean; reason?: string } {
   if (!raw || typeof raw !== 'object') {
     return { record: null, skipped: true, reason: 'Invalid record format' };
@@ -317,20 +324,20 @@ export function sanitizeAndValidateRecord(raw: any): { record: CRMRecord | null;
 
   const crmRecord: CRMRecord = {
     created_at: createdAtStr,
-    name: sanitizeFormulaInjection(String(raw.name || raw.lead_name || raw.customer_name || raw.contact_person || '').trim()),
+    name: sanitizeNewlines(sanitizeFormulaInjection(String(raw.name || raw.lead_name || raw.customer_name || raw.contact_person || '').trim())),
     email: primaryEmail,
     country_code: countryCode || undefined,
     mobile_without_country_code: primaryMobile || undefined,
-    company: sanitizeFormulaInjection(String(raw.company || raw.company_name || '').trim()),
-    city: sanitizeFormulaInjection(cityVal),
-    state: sanitizeFormulaInjection(String(raw.state || raw.province || raw.loc_state || '').trim()),
-    country: sanitizeFormulaInjection(String(raw.country || '').trim()),
-    lead_owner: sanitizeFormulaInjection(String(raw.lead_owner || '').trim()),
+    company: sanitizeNewlines(sanitizeFormulaInjection(String(raw.company || raw.company_name || '').trim())),
+    city: sanitizeNewlines(sanitizeFormulaInjection(cityVal)),
+    state: sanitizeNewlines(sanitizeFormulaInjection(String(raw.state || raw.province || raw.loc_state || '').trim())),
+    country: sanitizeNewlines(sanitizeFormulaInjection(String(raw.country || '').trim())),
+    lead_owner: sanitizeNewlines(sanitizeFormulaInjection(String(raw.lead_owner || '').trim())),
     crm_status: crmStatus,
-    crm_note: finalCrmNote ? sanitizeFormulaInjection(finalCrmNote) : undefined,
+    crm_note: finalCrmNote ? sanitizeNewlines(sanitizeFormulaInjection(finalCrmNote)) : undefined,
     data_source: dataSource,
-    possession_time: sanitizeFormulaInjection(String(raw.possession_time || '').trim()),
-    description: sanitizeFormulaInjection(String(raw.description || '').trim())
+    possession_time: sanitizeNewlines(sanitizeFormulaInjection(String(raw.possession_time || '').trim())),
+    description: sanitizeNewlines(sanitizeFormulaInjection(String(raw.description || '').trim()))
   };
 
   return { record: crmRecord, skipped: false };
