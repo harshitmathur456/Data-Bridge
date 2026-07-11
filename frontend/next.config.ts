@@ -1,10 +1,6 @@
 import type { NextConfig } from "next";
 import path from "path";
 
-// Absolute paths so Turbopack can find packages installed in frontend/node_modules
-// when resolving imports from the sibling shared/ directory.
-const nm = path.resolve(__dirname, "node_modules");
-
 const nextConfig: NextConfig = {
   output: "standalone",
 
@@ -16,10 +12,9 @@ const nextConfig: NextConfig = {
     resolveAlias: {
       // Map the @shared path alias
       "@shared": path.resolve(__dirname, "../shared"),
-      // Explicitly point server-only packages to frontend/node_modules so
-      // Turbopack can find them when resolving files in ../shared/services/
-      "@google/generative-ai": path.join(nm, "@google/generative-ai"),
-      "@supabase/supabase-js": path.join(nm, "@supabase/supabase-js"),
+      // Use relative paths to avoid the Windows absolute path Turbopack bug ("windows imports are not implemented yet")
+      "@google/generative-ai": "./node_modules/@google/generative-ai",
+      "@supabase/supabase-js": "./node_modules/@supabase/supabase-js",
     },
   },
 
@@ -27,10 +22,9 @@ const nextConfig: NextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       "@shared": path.resolve(__dirname, "../shared"),
+      "@google/generative-ai": path.resolve(__dirname, "node_modules/@google/generative-ai"),
+      "@supabase/supabase-js": path.resolve(__dirname, "node_modules/@supabase/supabase-js"),
     };
-    // Ensure webpack also searches frontend/node_modules when resolving
-    // imports that originate from ../shared/**
-    config.resolve.modules = [nm, "node_modules"];
     return config;
   },
 };
