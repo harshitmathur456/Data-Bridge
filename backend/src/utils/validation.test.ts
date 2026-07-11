@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeAndValidateRecord } from './validation';
+import { sanitizeAndValidateRecord, sanitizeNewlines } from './validation';
 import { heuristicMapRows } from '../services/geminiService';
 
 describe('sanitizeAndValidateRecord', () => {
@@ -264,6 +264,81 @@ describe('sanitizeAndValidateRecord', () => {
         name: 'Normal Name',
       });
       expect(record?.name).toBe('Normal Name');
+    });
+  });
+
+  // 11. Multiline / Newline sanitization
+  describe('Multiline newline sanitization', () => {
+    it('should replace actual \\n in crm_note with literal \\n text', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        crm_note: 'Line one\nLine two\nLine three',
+      });
+      expect(record?.crm_note).toBe('Line one\\nLine two\\nLine three');
+      expect(record?.crm_note).not.toContain('\n');
+    });
+
+    it('should replace \\r\\n (Windows newlines) with literal \\n text', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        crm_note: 'First line\r\nSecond line\r\nThird line',
+      });
+      expect(record?.crm_note).toBe('First line\\nSecond line\\nThird line');
+    });
+
+    it('should replace lone \\r (old Mac newlines) with literal \\n text', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        crm_note: 'Alpha\rBeta\rGamma',
+      });
+      expect(record?.crm_note).toBe('Alpha\\nBeta\\nGamma');
+    });
+
+    it('should sanitize newlines in description field', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        description: 'Desc line 1\nDesc line 2',
+      });
+      expect(record?.description).toBe('Desc line 1\\nDesc line 2');
+    });
+
+    it('should sanitize newlines in name field', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        name: 'John\nDoe',
+      });
+      expect(record?.name).toBe('John\\nDoe');
+    });
+
+    it('should leave text without newlines unchanged', () => {
+      const { record } = sanitizeAndValidateRecord({
+        email: 'test@example.com',
+        crm_note: 'Simple note without any newlines',
+      });
+      expect(record?.crm_note).toBe('Simple note without any newlines');
+    });
+  });
+
+  // 12. sanitizeNewlines helper unit tests
+  describe('sanitizeNewlines helper', () => {
+    it('should return empty string for empty input', () => {
+      expect(sanitizeNewlines('')).toBe('');
+    });
+
+    it('should convert \\n to literal \\n', () => {
+      expect(sanitizeNewlines('a\nb')).toBe('a\\nb');
+    });
+
+    it('should convert \\r\\n to single literal \\n', () => {
+      expect(sanitizeNewlines('a\r\nb')).toBe('a\\nb');
+    });
+
+    it('should convert \\r to literal \\n', () => {
+      expect(sanitizeNewlines('a\rb')).toBe('a\\nb');
+    });
+
+    it('should handle mixed newline types', () => {
+      expect(sanitizeNewlines('a\nb\r\nc\rd')).toBe('a\\nb\\nc\\nd');
     });
   });
 });
