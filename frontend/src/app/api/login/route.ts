@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { saveUserLogin } from '../../../services/supabaseService';
+import { saveUserLogin } from '@shared/services/supabaseService';
 
 export async function POST(request: Request) {
   try {

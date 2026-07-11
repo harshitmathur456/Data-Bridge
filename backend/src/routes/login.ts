@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { saveUserLogin } from '../services/supabaseService';
+import { saveUserLogin } from '@shared/services/supabaseService';
 
 const router = Router();
 

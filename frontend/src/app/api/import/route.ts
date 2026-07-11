@@ -1,17 +1,9 @@
 import { NextResponse } from 'next/server';
-import { mapBatchWithGemini, RawRow } from '../../../services/geminiService';
-import { sanitizeAndValidateRecord, CRMRecord } from '../../../utils/validation';
-import { saveImportToSupabase, isSupabaseConfigured } from '../../../services/supabaseService';
+import { mapBatchWithGemini } from '@shared/services/geminiService';
+import { sanitizeAndValidateRecord } from '@shared/utils/validation';
+import { saveImportToSupabase, isSupabaseConfigured } from '@shared/services/supabaseService';
+import { RawRow, CRMRecord, ImportRequest } from '@shared/types';
 
-interface ImportRequest {
-  rows: RawRow[];
-  fileName?: string;
-  isFinalBatch?: boolean;
-  allImported?: CRMRecord[];
-  allSkipped?: { row: RawRow; reason: string }[];
-  totalRows?: number;
-  aiEngine?: string;
-}
 
 export async function POST(request: Request) {
   try {

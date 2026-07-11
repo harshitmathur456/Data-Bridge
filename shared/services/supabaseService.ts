@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { CRMRecord } from '../utils/validation';
-import { RawRow } from './geminiService';
+import { CRMRecord, RawRow } from '../types';
+import { SUPABASE_INSERT_CHUNK_SIZE } from '../constants';
 
 let _client: ReturnType<typeof createClient> | null = null;
 
@@ -59,14 +59,13 @@ export async function saveImportToSupabase(params: {
       return { sessionId: null, error: sessionError?.message };
     }
 
-    const sessionId: string = (session as any).id;
+    const sessionId = (session as { id: string }).id;
 
-    // 2. Bulk insert CRM records (batch in chunks of 100 to stay under limits)
+    // 2. Bulk insert CRM records (batch in chunks to stay under limits)
     if (imported.length > 0) {
       const crmRows = imported.map((rec) => ({ ...rec, session_id: sessionId }));
-      const chunkSize = 100;
-      for (let i = 0; i < crmRows.length; i += chunkSize) {
-        const chunk = crmRows.slice(i, i + chunkSize);
+      for (let i = 0; i < crmRows.length; i += SUPABASE_INSERT_CHUNK_SIZE) {
+        const chunk = crmRows.slice(i, i + SUPABASE_INSERT_CHUNK_SIZE);
         const { error: insertError } = await supabase.from('crm_records').insert(chunk as any);
         if (insertError) {
           console.error('[Supabase] CRM records insert error:', insertError.message);

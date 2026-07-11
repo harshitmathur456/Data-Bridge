@@ -1,20 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { mapBatchWithGemini, RawRow } from '../services/geminiService';
-import { sanitizeAndValidateRecord, CRMRecord } from '../utils/validation';
-import { saveImportToSupabase, isSupabaseConfigured } from '../services/supabaseService';
+import { mapBatchWithGemini } from '@shared/services/geminiService';
+import { sanitizeAndValidateRecord } from '@shared/utils/validation';
+import { saveImportToSupabase, isSupabaseConfigured } from '@shared/services/supabaseService';
+import { RawRow, CRMRecord, ImportRequest } from '@shared/types';
 
 const router = Router();
-
-interface ImportRequest {
-  rows: RawRow[];
-  fileName?: string;
-  isFinalBatch?: boolean;
-  // For batch-level Supabase saving pass these from the frontend
-  allImported?: CRMRecord[];
-  allSkipped?: { row: RawRow; reason: string }[];
-  totalRows?: number;
-  aiEngine?: string;
-}
 
 // POST /api/import — maps a single batch of rows
 router.post('/', async (req: Request<{}, {}, ImportRequest>, res: Response) => {

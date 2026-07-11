@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeAndValidateRecord, sanitizeNewlines } from './validation';
-import { heuristicMapRows } from '../services/geminiService';
+import { sanitizeAndValidateRecord, sanitizeNewlines } from '@shared/utils/validation';
+import { heuristicMapRows } from '@shared/services/geminiService';
 
 describe('sanitizeAndValidateRecord', () => {
   // 1. Skip logic: record with no email AND no phone → should be marked as skipped.

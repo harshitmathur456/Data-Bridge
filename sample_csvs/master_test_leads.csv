@@ -1,0 +1,15 @@
+Date,Full Name,Email Address,Alt Emails,Phone,Alt Phone,Organization,Town,Province,Nation,Assigned Rep,Pipeline Stage,Comments,Channel,Move-in Date,Extra Info
+2026-05-20 14:00:00,Karan Mehta,karan.mehta@example.com,,9876500030,,Mehta Realty,Mumbai,Maharashtra,India,test@gmail.com,Interested - will follow up,Client wants a demo next week,leads_on_demand,,
+21-05-2026,Sunita Rao,sunita.rao@example.com,,9876500031,,Rao Properties,Pune,Maharashtra,India,test@gmail.com,no response after 3 calls,Could not connect despite multiple attempts,meridian_tower,,
+05/22/2026,Deepak Joshi,deepak.joshi@example.com,,9876500032,,Joshi Traders,Ahmedabad,Gujarat,India,test@gmail.com,not interested at all,Said clearly not interested,eden_park,,
+2026-05-23T09:15:00,Meera Nair,meera.nair@example.com,,9876500033,,Nair Exports,Kochi,Kerala,India,test@gmail.com,deal signed,Deal closed and payment received,varah_swamy,Dec 2026,
+24-05-2026,Vikas Chandra,vikas.chandra@example.com,,9876500034,,Chandra Buildtech,Jaipur,Rajasthan,India,test@gmail.com,hot lead,Very interested wants a site visit,sarjapur_plots,,
+25-05-2026,Ananya Iyer,ananya.iyer@example.com,,9876500035,,Iyer Consultancy,Bengaluru,Karnataka,India,test@gmail.com,follow up needed,Requested more details via email,Referral Program XYZ,,
+26-05-2026,Rohan Kapoor,rohan.kapoor@example.com,rohan.alt@example.com; rohan.backup@example.com,9876500036,,Kapoor Industries,Chandigarh,Punjab,India,test@gmail.com,,Multiple email addresses provided by client,leads_on_demand,,
+27-05-2026,Divya Menon,divya.menon@example.com,,9876500037,9876500038 / 9876500039,Menon Group,Coimbatore,Tamil Nadu,India,test@gmail.com,,Client gave office and personal numbers both,meridian_tower,,
+28-05-2026,Farhan Sheikh,farhan.sheikh@example.com,,9876500040,,Sheikh Enterprises,Lucknow,Uttar Pradesh,India,test@gmail.com,,"Client said on call:
+""please call me after 6 PM only""
+Also asked for a brochure by email.",eden_park,,
+29-05-2026,Ghost Lead,,,,,Nowhere Inc,,,,test@gmail.com,,This record has no email or phone and must be skipped,,,
+30 May 2026,Priya Kulkarni,priya.kulkarni@example.com,,9876500041,,Kulkarni Textiles,Nagpur,Maharashtra,India,test@gmail.com,,Testing a text-based date format,sarjapur_plots,,
+31-05-2026,Amitabh Sen,amitabh.sen@example.com,,9876500042,,Sen Developers,Kolkata,West Bengal,India,test@gmail.com,GOOD_LEAD_FOLLOW_UP,Looking for a 3BHK flat with possession by mid next year,leads_on_demand,June 2027,3BHK apartment inquiry near IT park

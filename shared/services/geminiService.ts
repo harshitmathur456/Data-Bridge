@@ -1,8 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { RawRow, CRMRecord } from '../types';
+import { GEMINI_MAX_RETRIES } from '../constants';
 
-export interface RawRow {
-  [key: string]: string;
-}
+// Open-ended row type representing raw Gemini JSON output before normalization.
+// Gemini may return both canonical CRMRecord keys AND alias keys (e.g. "phone",
+// "location", "company_name"), so we need both an index signature and CRMRecord
+// compatibility.
+type GeminiRawRow = Partial<CRMRecord> & Record<string, string | undefined>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Post-processing normalizer
@@ -10,9 +14,9 @@ export interface RawRow {
 // (e.g. "phone" instead of "mobile_without_country_code", "loc_city" vs "city").
 // This function maps every Gemini output row onto the canonical schema keys.
 // ─────────────────────────────────────────────────────────────────────────────
-function normalizeGeminiRow(raw: any, originalRow: RawRow): any {
+function normalizeGeminiRow(raw: GeminiRawRow, originalRow: RawRow): Partial<CRMRecord> {
   if (!raw || typeof raw !== 'object') return raw;
-  const out: any = { ...raw };
+  const out: GeminiRawRow = { ...raw };
 
   // ── Phone ────────────────────────────────────────────────────────────────
   if (!out.mobile_without_country_code || out.mobile_without_country_code === '') {
@@ -94,7 +98,7 @@ function normalizeGeminiRow(raw: any, originalRow: RawRow): any {
   }
 
   // ── crm_status inference from free-text notes (post-Gemini safety net) ──
-  if (!out.crm_status || out.crm_status === '') {
+  if (!out.crm_status) {
     const noteText = String(
       raw.crm_note || raw.note || raw.notes || raw.comments || raw.remark || ''
     ).toLowerCase();
@@ -109,16 +113,16 @@ function normalizeGeminiRow(raw: any, originalRow: RawRow): any {
     }
   }
 
-  return out;
+  return out as Partial<CRMRecord>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Heuristic fallback mapper (runs when no API key or on Gemini failure)
 // ─────────────────────────────────────────────────────────────────────────────
-export function heuristicMapRows(rows: RawRow[]): any[] {
+export function heuristicMapRows(rows: RawRow[]): Partial<CRMRecord>[] {
   console.log('[Mock AI] Using heuristic mapping fallback');
   return rows.map(row => {
-    const result: any = {};
+    const result: GeminiRawRow = {};
     const keys = Object.keys(row);
     const mappedKeys = new Set<string>();
 
@@ -140,7 +144,6 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
     }
 
     // ── Email — primary & alt ──
-    // IMPORTANT: Exclude owner/assigned/agent/admin to avoid mapping owner emails as lead emails.
     const primaryEmailKey = keys.find(k => {
       const name = k.toLowerCase();
       const val = row[k]?.trim();
@@ -160,8 +163,7 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
       result._altEmail = row[altEmailKey]; // carry through to crm_note below
     }
 
-    // ── Phone — NEVER matches 'Contact Email' or 'Alt Email' ──
-    // Regex deliberately avoids bare '\bcontact\b' — only matches contact+number/no/ph
+    // ── Phone ──
     const phoneRe = /\bph.?no\b|\bphone.?no\b|\bphone\b|\bmobile\b|\bwhatsapp\b|\btelephone\b|\bcell\b|\bcontact.?(?:num|no|ph)\b|\bph\b/i;
     const phoneKey = findKey(phoneRe);
     if (phoneKey) {
@@ -266,7 +268,7 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
         : extraNotes;
     }
 
-    return result;
+    return result as Partial<CRMRecord>;
   });
 }
 
@@ -301,9 +303,6 @@ RULES:
 10. Return strict JSON array only. No markdown, no commentary, no code fences.
 11. crm_note: Append any additional columns/values from the input record that do not fit into the other standard CRM schema fields (e.g. custom columns like "budget", "requirements", "age", etc.) into the crm_note field in the format "Key: Value". If there are multiple, separate them with a pipe " | ".`;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Few-shot examples — covers phone-only, ambiguous city header, status inference
-// ─────────────────────────────────────────────────────────────────────────────
 const FEW_SHOT_EXAMPLES = `
 Example input:
 [
@@ -358,12 +357,9 @@ Example output:
 ]
 `;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main export
-// ─────────────────────────────────────────────────────────────────────────────
 let requestCounter = 0;
 
-export async function mapBatchWithGemini(rows: RawRow[]): Promise<any[]> {
+export async function mapBatchWithGemini(rows: RawRow[]): Promise<Partial<CRMRecord>[]> {
   const keysStr = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
   const apiKeys = keysStr
     .split(',')
@@ -377,7 +373,7 @@ export async function mapBatchWithGemini(rows: RawRow[]): Promise<any[]> {
   const startIndex = requestCounter % apiKeys.length;
   requestCounter++;
 
-  let lastError: any = null;
+  let lastError: Error | null = null;
 
   for (let i = 0; i < apiKeys.length; i++) {
     const activeIndex = (startIndex + i) % apiKeys.length;
@@ -417,13 +413,13 @@ Return the mapped output strictly as a JSON array. No markdown, no code fences, 
 
       if (!Array.isArray(parsed)) throw new Error('Gemini output is not a JSON array');
 
-      return (parsed as any[]).map((geminiRow, idx) =>
-        normalizeGeminiRow(geminiRow, rows[idx] ?? {})
+      return (parsed as unknown[]).map((geminiRow, idx) =>
+        normalizeGeminiRow(geminiRow as GeminiRawRow, rows[idx] ?? {})
       );
 
-    } catch (error: any) {
-      lastError = error;
-      console.warn(`[Gemini Service] Key index ${activeIndex + 1} failed: ${error.message || error}. Trying next key...`);
+    } catch (error: unknown) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.warn(`[Gemini Service] Key index ${activeIndex + 1} failed: ${lastError.message}. Trying next key...`);
     }
   }
 
