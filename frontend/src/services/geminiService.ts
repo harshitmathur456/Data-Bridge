@@ -73,6 +73,26 @@ function normalizeGeminiRow(raw: any, originalRow: RawRow): any {
     }
   }
 
+  // ── Company ──────────────────────────────────────────────────────────────
+  if (!out.company || out.company === '') {
+    const companyAliases = ['company_name', 'organization', 'org', 'business', 'biz', 'firm', 'corp', 'co'];
+    for (const alias of companyAliases) {
+      if (raw[alias] && String(raw[alias]).trim()) {
+        out.company = String(raw[alias]).trim();
+        break;
+      }
+    }
+    // Scan original row for company/organization alias keys as fallback
+    if (!out.company) {
+      for (const key of Object.keys(originalRow)) {
+        if (/\bcompany\b|\borg\b|\borgani[sz]ation\b|\bbusiness\b|\bbiz\b|\bfirm\b|\bcorp\b|\bco\b/i.test(key) && originalRow[key]?.trim()) {
+          out.company = originalRow[key].trim();
+          break;
+        }
+      }
+    }
+  }
+
   // ── crm_status inference from free-text notes (post-Gemini safety net) ──
   if (!out.crm_status || out.crm_status === '') {
     const noteText = String(
@@ -165,7 +185,7 @@ export function heuristicMapRows(rows: RawRow[]): any[] {
     if (dateKey) result.created_at = row[dateKey];
 
     // ── Company / Org ──
-    const companyKey = findKey(/\bcompany\b|\borg\b|\borganis?ation\b|\bbusiness\b|\bbiz\b|\bfirm\b|\bcorp\b|\bco\b/i);
+    const companyKey = findKey(/\bcompany\b|\borg\b|\borgani[sz]ation\b|\bbusiness\b|\bbiz\b|\bfirm\b|\bcorp\b|\bco\b/i);
     if (companyKey) result.company = row[companyKey];
 
     // ── City — Town > City > Location ──
