@@ -18,9 +18,12 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../shared/*"],
+      "@google/generative-ai": ["node_modules/@google/generative-ai"],
+      "@supabase/supabase-js": ["node_modules/@supabase/supabase-js"]
     }
   },
   "include": [

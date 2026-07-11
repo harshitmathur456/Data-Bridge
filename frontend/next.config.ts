@@ -4,10 +4,6 @@ import path from "path";
 const nextConfig: NextConfig = {
   output: "standalone",
 
-  // Tell Next.js (both Turbopack & Webpack) NOT to bundle these server-only
-  // packages — they are only used inside API routes, never in client code.
-  serverExternalPackages: ["@google/generative-ai", "@supabase/supabase-js"],
-
   turbopack: {
     resolveAlias: {
       // Map the @shared path alias
